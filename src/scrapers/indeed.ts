@@ -1,7 +1,7 @@
-import { v4 as uuidv4 } from 'uuid';
-import { BaseScraper } from './base';
-import { JobPosting, SearchOptions } from './types';
-import { PlatformConfig } from '../config/types';
+import { v4 as uuidv4 } from 'uuid'
+import { BaseScraper } from './base'
+import { JobPosting, SearchOptions } from './types'
+import { PlatformConfig } from '../config/types'
 
 const SEL = {
   jobCards: '.job_seen_beacon',
@@ -10,34 +10,45 @@ const SEL = {
   jobLocation: '[data-testid="text-location"]',
   jobSalary: '[data-testid="attribute_snippet_testid"]',
   jobLink: 'a[data-testid="job-title-link"]',
-};
+}
 
 export class IndeedScraper extends BaseScraper {
   constructor(private _config: PlatformConfig) {
-    super();
+    super()
   }
 
   async search(options: SearchOptions): Promise<JobPosting[]> {
-    const page = await this.launch(true);
-    const jobs: JobPosting[] = [];
+    const page = await this.launch(true)
+    const jobs: JobPosting[] = []
 
     try {
       for (const keyword of options.keywords) {
-        const url = new URL('https://www.indeed.com/jobs');
-        url.searchParams.set('q', keyword);
-        url.searchParams.set('l', options.location);
-        if (options.remote) url.searchParams.set('remotejob', '032b3046-06a3-4876-8dfd-474eb5e7ed11');
+        const url = new URL('https://www.indeed.com/jobs')
+        url.searchParams.set('q', keyword)
+        url.searchParams.set('l', options.location)
+        if (options.remote)
+          url.searchParams.set('remotejob', '032b3046-06a3-4876-8dfd-474eb5e7ed11')
 
-        await page.goto(url.toString(), { waitUntil: 'networkidle' });
-        await page.waitForTimeout(2000);
+        await page.goto(url.toString(), { waitUntil: 'networkidle' })
+        await page.waitForTimeout(2000)
 
-        const cards = await page.$$(SEL.jobCards);
+        const cards = await page.$$(SEL.jobCards)
         for (const card of cards.slice(0, 25)) {
-          const title = await card.$eval(SEL.jobTitle, el => el.textContent?.trim() ?? '').catch(() => '');
-          const company = await card.$eval(SEL.jobCompany, el => el.textContent?.trim() ?? '').catch(() => '');
-          const location = await card.$eval(SEL.jobLocation, el => el.textContent?.trim() ?? '').catch(() => '');
-          const salary = await card.$eval(SEL.jobSalary, el => el.textContent?.trim() ?? '').catch(() => '');
-          const href = await card.$eval(SEL.jobLink, (el: Element) => (el as HTMLAnchorElement).href).catch(() => '');
+          const title = await card
+            .$eval(SEL.jobTitle, (el) => el.textContent?.trim() ?? '')
+            .catch(() => '')
+          const company = await card
+            .$eval(SEL.jobCompany, (el) => el.textContent?.trim() ?? '')
+            .catch(() => '')
+          const location = await card
+            .$eval(SEL.jobLocation, (el) => el.textContent?.trim() ?? '')
+            .catch(() => '')
+          const salary = await card
+            .$eval(SEL.jobSalary, (el) => el.textContent?.trim() ?? '')
+            .catch(() => '')
+          const href = await card
+            .$eval(SEL.jobLink, (el: Element) => (el as HTMLAnchorElement).href)
+            .catch(() => '')
 
           if (title && company && href) {
             jobs.push({
@@ -52,14 +63,14 @@ export class IndeedScraper extends BaseScraper {
               source: 'indeed',
               foundAt: new Date(),
               status: 'new',
-            });
+            })
           }
         }
       }
     } finally {
-      await this.close();
+      await this.close()
     }
 
-    return this.applyFilters(jobs, options);
+    return this.applyFilters(jobs, options)
   }
 }
