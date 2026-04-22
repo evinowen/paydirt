@@ -1,0 +1,38 @@
+search:
+  interval: 60
+  keywords:
+    - Software Engineer
+    - TypeScript Developer
+  location: San Francisco, CA
+  remote: true
+  salary_min: 120000
+  experience_level: mid
+
+resume:
+  path: ./resume.docx
+
+linkedin:
+  enabled: true
+  email: user@example.com
+  password: yourpassword
+  easy_apply_only: false
+
+indeed:
+  enabled: true
+  email: user@example.com
+  password: yourpassword
+
+glassdoor:
+  enabled: true
+  email: user@example.com
+  password: yourpassword
+
+apply:
+  cover_letter: false
+
+filters:
+  exclude_companies:
+    - Example Corp
+  exclude_keywords:
+    - unpaid
+    - internship
