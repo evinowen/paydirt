@@ -140,29 +140,12 @@ export class LinkedInScraper extends BaseScraper {
       log(`LinkedIn: fetching description from ${url}`)
       await page.goto(url, { waitUntil: 'load' })
 
-      const selectors = [
-        '#job-details',
-        '.jobs-description-content__text--stretch',
-        '.jobs-description-content__text',
-        '[class*="jobs-description-content__text"]',
-        '.jobs-description__content',
-        '.jobs-description',
-      ]
-      const sel = selectors.join(', ')
+      const sel = '[data-testid="expandable-text-box"], #job-details, .jobs-description-content__text'
       await page.waitForSelector(sel, { timeout: 10000 }).catch(() => {})
 
-      const desc = await page
+      return await page
         .$eval(sel, (el) => (el as HTMLElement).innerText?.trim() ?? el.textContent?.trim() ?? '')
         .catch(() => '')
-
-      if (!desc) {
-        const html = await page.content()
-        const debugPath = path.resolve('logs', 'debug-linkedin-desc.html')
-        fs.writeFileSync(debugPath, html)
-        log(`LinkedIn: no description found — page HTML saved to ${debugPath}`, 'warn')
-      }
-
-      return desc
     } finally {
       await this.close()
     }
