@@ -1,6 +1,7 @@
 import path from 'path'
 import { loadConfig } from './config/loader'
 import { ConfigWatcher } from './config/watcher'
+import { FileLogger } from './logger/file'
 import { parseResume } from './resume/parser'
 import { JobSearchService } from './service'
 import { TUI } from './tui'
@@ -27,7 +28,14 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
+  const logger = new FileLogger(path.resolve('logs'))
+  logger.init()
+
   const service = new JobSearchService(config, resume, absoluteConfigPath)
+  service.on('log', ({ message, level }: { message: string; level: string }) => {
+    logger.write(message, level)
+  })
+
   const tui = new TUI(service)
 
   const watcher = new ConfigWatcher()
@@ -44,6 +52,7 @@ async function main(): Promise<void> {
   const shutdown = () => {
     service.stop()
     watcher.stop()
+    logger.close()
     process.exit(0)
   }
 
@@ -53,6 +62,7 @@ async function main(): Promise<void> {
   service.start()
   await tui.start()
   watcher.stop()
+  logger.close()
   process.exit(0)
 }
 
