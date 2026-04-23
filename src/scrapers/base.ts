@@ -1,3 +1,4 @@
+import fs from 'fs'
 import { Browser, BrowserContext, Page, chromium } from 'playwright'
 import { AutomationContext, JobPosting, SearchOptions } from './types'
 
@@ -7,15 +8,18 @@ export abstract class BaseScraper {
 
   abstract search(options: SearchOptions, ctx?: AutomationContext): Promise<JobPosting[]>
 
-  protected async launch(headless = true): Promise<Page> {
+  protected async launch(headless = true, storageStatePath?: string): Promise<Page> {
     this.browser = await chromium.launch({
       headless,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     })
+    const storageState =
+      storageStatePath && fs.existsSync(storageStatePath) ? storageStatePath : undefined
     this.context = await this.browser.newContext({
       userAgent:
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       viewport: { width: 1280, height: 800 },
+      storageState,
     })
     return this.context.newPage()
   }
