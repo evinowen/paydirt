@@ -155,7 +155,7 @@ const JobExpanded: React.FC<{ job: JobPosting; scroll: number; rows: number; loa
           <Text color="grey">No description available.</Text>
         ) : (
           visible.map((line, i) => (
-            <Text key={i}>{line}</Text>
+            <Text key={i}>{line || ' '}</Text>
           ))
         )}
       </Box>
@@ -256,10 +256,10 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
     }
   }, [service, addLog])
 
-  useInput((input: string, key: { upArrow: boolean; downArrow: boolean; return: boolean; escape: boolean }) => {
+  useInput((_input: string, key: { upArrow: boolean; downArrow: boolean; return: boolean; escape: boolean; backspace: boolean }) => {
     if (command !== '') return
     if (expandedJob) {
-      if (key.escape || input === '\x7f') { setExpandedJob(false); setDescScroll(0); setDescLoading(false) }
+      if (key.escape || key.backspace) { setExpandedJob(false); setDescScroll(0); setDescLoading(false) }
       if (key.upArrow) setDescScroll((prev) => Math.max(0, prev - 1))
       if (key.downArrow) setDescScroll((prev) => prev + 1)
       return
