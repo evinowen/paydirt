@@ -152,7 +152,7 @@ export class LinkedInScraper extends BaseScraper {
         const YELLOW = '\x1b[33m'
         const GREY   = '\x1b[90m'
 
-        function convert(node: Node): string {
+        const convert = (node: Node): string => {
           if (node.nodeType === 3) return (node as Text).textContent ?? ''
           if (node.nodeType !== 1) return ''
           const el = node as Element
