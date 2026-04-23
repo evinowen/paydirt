@@ -186,7 +186,7 @@ export class LinkedInScraper extends BaseScraper {
         const box = document.querySelector('[data-testid="expandable-text-box"]')
         if (!box) return ''
         return convert(box).replace(/\n{3,}/g, '\n\n').trim()
-      }).catch(() => '')
+      }).catch((err) => { log(`LinkedIn: description parse error: ${err}`, 'error'); return '' })
     } finally {
       await this.close()
     }
