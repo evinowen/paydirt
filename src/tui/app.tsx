@@ -143,6 +143,7 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
   ])
   const [command, setCommand] = useState('')
   const [selectedJob, setSelectedJob] = useState(0)
+  const [pendingVerification, setPendingVerification] = useState<string | null>(null)
 
   const addLog = useCallback((text: string, level: LogEntry['level'] = 'info') => {
     setLogs((prev) => [
@@ -155,17 +156,24 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
     const onLog = ({ message, level }: { message: string; level: string }) =>
       addLog(message, level as LogEntry['level'])
     const onUpdate = () => setState({ ...service.getState() })
+    const onVerify = ({ source }: { source: string }) => {
+      addLog(`LinkedIn sent a verification code to your email — enter it below`, 'warn')
+      setPendingVerification(source)
+      setCommand('')
+    }
     service.on('log', onLog)
     service.on('jobs:found', onUpdate)
     service.on('jobs:updated', onUpdate)
     service.on('status:change', onUpdate)
     service.on('tick', onUpdate)
+    service.on('verification:required', onVerify)
     return () => {
       service.off('log', onLog)
       service.off('jobs:found', onUpdate)
       service.off('jobs:updated', onUpdate)
       service.off('status:change', onUpdate)
       service.off('tick', onUpdate)
+      service.off('verification:required', onVerify)
     }
   }, [service, addLog])
 
@@ -181,6 +189,15 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
     (value: string) => {
       setCommand('')
       const trimmed = value.trim()
+
+      if (pendingVerification) {
+        if (!trimmed) return
+        addLog(`[verification code submitted]`, 'command')
+        setPendingVerification(null)
+        service.resolveVerificationCode(pendingVerification, trimmed)
+        return
+      }
+
       if (!trimmed) return
       addLog(`> ${trimmed}`, 'command')
       const result = processCommand(trimmed, service)
@@ -199,7 +216,7 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
         }
       }
     },
-    [service, exit, addLog],
+    [service, exit, addLog, pendingVerification],
   )
 
   const rows = process.stdout.rows ?? 24
@@ -251,9 +268,9 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
         </Text>
       </Box>
 
-      <Box borderStyle="single" borderColor="magenta">
-        <Text color="magenta" bold>
-          {' > '}
+      <Box borderStyle="single" borderColor={pendingVerification ? 'yellow' : 'magenta'}>
+        <Text color={pendingVerification ? 'yellow' : 'magenta'} bold>
+          {pendingVerification ? ` [${pendingVerification} verify] ` : ' > '}
         </Text>
         <TextInput value={command} onChange={setCommand} onSubmit={handleSubmit} />
       </Box>

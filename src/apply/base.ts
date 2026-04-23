@@ -1,5 +1,5 @@
 import { Browser, BrowserContext, Page, chromium } from 'playwright'
-import { JobPosting } from '../scrapers/types'
+import { JobPosting, PromptCodeFn } from '../scrapers/types'
 import { ResumeData } from '../resume/parser'
 
 export interface ApplicationResult {
@@ -11,7 +11,7 @@ export abstract class BaseApplicator {
   protected browser: Browser | null = null
   protected context: BrowserContext | null = null
 
-  abstract apply(job: JobPosting, resume: ResumeData): Promise<ApplicationResult>
+  abstract apply(job: JobPosting, resume: ResumeData, promptCode?: PromptCodeFn): Promise<ApplicationResult>
 
   protected async launch(headless = false): Promise<Page> {
     this.browser = await chromium.launch({

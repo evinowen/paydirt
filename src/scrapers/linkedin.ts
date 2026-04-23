@@ -1,12 +1,13 @@
 import { v4 as uuidv4 } from 'uuid'
 import { BaseScraper } from './base'
-import { JobPosting, SearchOptions } from './types'
+import { JobPosting, PromptCodeFn, SearchOptions } from './types'
 import { LinkedInConfig } from '../config/types'
 
 const SEL = {
   usernameInput: '#username',
   passwordInput: '#password',
   loginButton: 'button[type="submit"]',
+  verifyInput: 'input[autocomplete="one-time-code"], input#input__email_verification_pin, input[name="pin"]',
   jobCards: '.job-card-container',
   jobTitle: '.job-card-list__title',
   jobCompany: '.job-card-container__company-name',
@@ -20,7 +21,7 @@ export class LinkedInScraper extends BaseScraper {
     super()
   }
 
-  async search(options: SearchOptions): Promise<JobPosting[]> {
+  async search(options: SearchOptions, promptCode?: PromptCodeFn): Promise<JobPosting[]> {
     const page = await this.launch(true)
     const jobs: JobPosting[] = []
 
@@ -29,7 +30,16 @@ export class LinkedInScraper extends BaseScraper {
       await page.fill(SEL.usernameInput, this.config.email)
       await page.fill(SEL.passwordInput, this.config.password)
       await page.click(SEL.loginButton)
-      await page.waitForURL(/linkedin\.com\/(feed|jobs)/, { timeout: 20000 })
+      await page.waitForLoadState('domcontentloaded')
+
+      if (/checkpoint|challenge|pin|verification/.test(page.url())) {
+        if (!promptCode) throw new Error('LinkedIn requires email verification but no prompt handler is available')
+        const code = await promptCode('linkedin')
+        await page.fill(SEL.verifyInput, code)
+        await page.click(SEL.loginButton)
+      }
+
+      await page.waitForURL(/linkedin\.com\/(feed|jobs)/, { timeout: 30000 })
 
       for (const keyword of options.keywords) {
         const url = new URL('https://www.linkedin.com/jobs/search/')

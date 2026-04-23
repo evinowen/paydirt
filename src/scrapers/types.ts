@@ -1,3 +1,5 @@
+export type PromptCodeFn = (source: string) => Promise<string>
+
 export type JobSource = 'linkedin' | 'indeed' | 'glassdoor'
 export type JobStatus = 'new' | 'applied' | 'skipped' | 'failed'
 

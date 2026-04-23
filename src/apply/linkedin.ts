@@ -1,15 +1,17 @@
 import { Page } from 'playwright'
 import { BaseApplicator, ApplicationResult } from './base'
-import { JobPosting } from '../scrapers/types'
+import { JobPosting, PromptCodeFn } from '../scrapers/types'
 import { ResumeData } from '../resume/parser'
 import { LinkedInConfig } from '../config/types'
+
+const VERIFY_SEL = 'input[autocomplete="one-time-code"], input#input__email_verification_pin, input[name="pin"]'
 
 export class LinkedInApplicator extends BaseApplicator {
   constructor(private config: LinkedInConfig) {
     super()
   }
 
-  async apply(job: JobPosting, resume: ResumeData): Promise<ApplicationResult> {
+  async apply(job: JobPosting, resume: ResumeData, promptCode?: PromptCodeFn): Promise<ApplicationResult> {
     const page = await this.launch(false)
 
     try {
@@ -17,7 +19,16 @@ export class LinkedInApplicator extends BaseApplicator {
       await page.fill('#username', this.config.email)
       await page.fill('#password', this.config.password)
       await page.click('button[type="submit"]')
-      await page.waitForURL(/linkedin\.com\/(feed|jobs)/, { timeout: 20000 })
+      await page.waitForLoadState('domcontentloaded')
+
+      if (/checkpoint|challenge|pin|verification/.test(page.url())) {
+        if (!promptCode) throw new Error('LinkedIn requires email verification but no prompt handler is available')
+        const code = await promptCode('linkedin')
+        await page.fill(VERIFY_SEL, code)
+        await page.click('button[type="submit"]')
+      }
+
+      await page.waitForURL(/linkedin\.com\/(feed|jobs)/, { timeout: 30000 })
 
       await page.goto(job.url, { waitUntil: 'networkidle' })
 

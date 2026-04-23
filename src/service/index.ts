@@ -25,6 +25,7 @@ export class JobSearchService extends EventEmitter {
   private state: ServiceState
   private searchTimer: NodeJS.Timeout | null = null
   private tickTimer: NodeJS.Timeout | null = null
+  private verificationResolvers: Map<string, (code: string) => void> = new Map()
 
   constructor(
     config: Config,
@@ -58,6 +59,21 @@ export class JobSearchService extends EventEmitter {
     return { ...this.state, jobs: [...this.state.jobs] }
   }
 
+  promptVerificationCode(source: string): Promise<string> {
+    return new Promise((resolve) => {
+      this.verificationResolvers.set(source, resolve)
+      this.emit('verification:required', { source })
+    })
+  }
+
+  resolveVerificationCode(source: string, code: string): void {
+    const resolve = this.verificationResolvers.get(source)
+    if (resolve) {
+      this.verificationResolvers.delete(source)
+      resolve(code)
+    }
+  }
+
   async runSearch(): Promise<void> {
     if (this.state.status === 'searching') {
       this.log('Search already in progress, skipping')
@@ -82,7 +98,10 @@ export class JobSearchService extends EventEmitter {
     if (this.state.config.linkedin?.enabled) {
       try {
         this.log('Searching LinkedIn...')
-        const jobs = await new LinkedInScraper(this.state.config.linkedin).search(options)
+        const jobs = await new LinkedInScraper(this.state.config.linkedin).search(
+          options,
+          (source) => this.promptVerificationCode(source),
+        )
         found.push(...jobs)
         this.log(`LinkedIn: ${jobs.length} posting(s) found`)
       } catch (err) {
@@ -145,7 +164,11 @@ export class JobSearchService extends EventEmitter {
       switch (job.source) {
         case 'linkedin':
           if (!this.state.config.linkedin) throw new Error('LinkedIn not configured')
-          result = await new LinkedInApplicator(this.state.config.linkedin).apply(job, this.resume)
+          result = await new LinkedInApplicator(this.state.config.linkedin).apply(
+            job,
+            this.resume,
+            (source) => this.promptVerificationCode(source),
+          )
           break
         case 'indeed':
           if (!this.state.config.indeed) throw new Error('Indeed not configured')
