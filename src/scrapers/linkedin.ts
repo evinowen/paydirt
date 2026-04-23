@@ -138,12 +138,21 @@ export class LinkedInScraper extends BaseScraper {
     const page = await this.launch(true, SESSION_PATH)
     try {
       log(`LinkedIn: fetching description from ${url}`)
-      await page.goto(url, { waitUntil: 'domcontentloaded' })
+      await page.goto(url, { waitUntil: 'load' })
+
+      const selectors = [
+        '#job-details',
+        '.jobs-description-content__text--stretch',
+        '.jobs-description-content__text',
+        '[class*="jobs-description-content__text"]',
+        '.jobs-description__content',
+        '.jobs-description',
+      ]
+      const sel = selectors.join(', ')
+      await page.waitForSelector(sel, { timeout: 10000 }).catch(() => {})
+
       return await page
-        .$eval(
-          '.jobs-description-content__text, .jobs-description__content, #job-details',
-          (el) => el.textContent?.trim() ?? '',
-        )
+        .$eval(sel, (el) => (el as HTMLElement).innerText?.trim() ?? el.textContent?.trim() ?? '')
         .catch(() => '')
     } finally {
       await this.close()
