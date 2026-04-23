@@ -21,7 +21,8 @@ export class LinkedInApplicator extends BaseApplicator {
 
     try {
       log(`LinkedIn: navigating to login page...`)
-      await page.goto('https://www.linkedin.com/login', { waitUntil: 'networkidle' })
+      await page.goto('https://www.linkedin.com/login', { waitUntil: 'domcontentloaded' })
+      await page.waitForSelector('#username', { timeout: 15000 })
 
       log(`LinkedIn: entering credentials...`)
       await page.fill('#username', this.config.email)
@@ -48,7 +49,7 @@ export class LinkedInApplicator extends BaseApplicator {
       }
 
       log(`LinkedIn: logged in, navigating to job listing...`)
-      await page.goto(job.url, { waitUntil: 'networkidle' })
+      await page.goto(job.url, { waitUntil: 'domcontentloaded' })
 
       const easyApplyBtn = page.locator('button:has-text("Easy Apply")').first()
       if (!(await easyApplyBtn.isVisible({ timeout: 5000 }).catch(() => false))) {

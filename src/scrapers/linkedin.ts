@@ -29,7 +29,8 @@ export class LinkedInScraper extends BaseScraper {
 
     try {
       log('LinkedIn: navigating to login page...')
-      await page.goto('https://www.linkedin.com/login', { waitUntil: 'networkidle' })
+      await page.goto('https://www.linkedin.com/login', { waitUntil: 'domcontentloaded' })
+      await page.waitForSelector(SEL.usernameInput, { timeout: 15000 })
 
       log('LinkedIn: entering credentials...')
       await page.fill(SEL.usernameInput, this.config.email)
@@ -64,8 +65,8 @@ export class LinkedInScraper extends BaseScraper {
         url.searchParams.set('location', options.location)
         if (options.remote) url.searchParams.set('f_WT', '2')
 
-        await page.goto(url.toString(), { waitUntil: 'networkidle' })
-        await page.waitForTimeout(2000)
+        await page.goto(url.toString(), { waitUntil: 'domcontentloaded' })
+        await page.waitForSelector(SEL.jobCards, { timeout: 15000 }).catch(() => {})
 
         const cards = await page.$$(SEL.jobCards)
         log(`LinkedIn: found ${cards.length} card(s) for "${keyword}", extracting details...`)

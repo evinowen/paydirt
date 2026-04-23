@@ -28,8 +28,9 @@ export class GlassdoorScraper extends BaseScraper {
     try {
       log('Glassdoor: navigating to login page...')
       await page.goto('https://www.glassdoor.com/profile/login_input.htm', {
-        waitUntil: 'networkidle',
+        waitUntil: 'domcontentloaded',
       })
+      await page.waitForSelector(SEL.emailInput, { timeout: 15000 })
       log('Glassdoor: entering credentials...')
       await page.fill(SEL.emailInput, this.config.email)
       await page.click(SEL.continueButton)
@@ -47,8 +48,8 @@ export class GlassdoorScraper extends BaseScraper {
         url.searchParams.set('locKeyword', options.location)
         if (options.remote) url.searchParams.set('remoteWorkType', '1')
 
-        await page.goto(url.toString(), { waitUntil: 'networkidle' })
-        await page.waitForTimeout(2000)
+        await page.goto(url.toString(), { waitUntil: 'domcontentloaded' })
+        await page.waitForSelector(SEL.jobCards, { timeout: 15000 }).catch(() => {})
 
         const cards = await page.$$(SEL.jobCards)
         log(`Glassdoor: found ${cards.length} card(s) for "${keyword}", extracting details...`)

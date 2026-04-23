@@ -31,8 +31,8 @@ export class IndeedScraper extends BaseScraper {
         if (options.remote)
           url.searchParams.set('remotejob', '032b3046-06a3-4876-8dfd-474eb5e7ed11')
 
-        await page.goto(url.toString(), { waitUntil: 'networkidle' })
-        await page.waitForTimeout(2000)
+        await page.goto(url.toString(), { waitUntil: 'domcontentloaded' })
+        await page.waitForSelector(SEL.jobCards, { timeout: 15000 }).catch(() => {})
 
         const cards = await page.$$(SEL.jobCards)
         log(`Indeed: found ${cards.length} card(s) for "${keyword}", extracting details...`)
