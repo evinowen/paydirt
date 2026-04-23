@@ -4,18 +4,18 @@
   "description": "Automated job search and application service",
   "main": "dist/index.js",
   "scripts": {
-    "start": "ts-node src/index.ts",
+    "start": "tsx src/index.ts",
     "build": "tsc",
-    "dev": "ts-node-dev --respawn src/index.ts"
+    "dev": "tsx watch src/index.ts"
   },
   "dependencies": {
     "chokidar": "^3.6.0",
-    "ink": "^4.4.1",
-    "ink-text-input": "^5.0.1",
+    "ink": "^3.2.0",
+    "ink-text-input": "^4.0.3",
     "js-yaml": "^4.1.0",
     "mammoth": "^1.8.0",
     "playwright": "^1.43.0",
-    "react": "^18.2.0",
+    "react": "^18.3.1",
     "uuid": "^9.0.0",
     "zod": "^3.23.0"
   },
@@ -27,6 +27,7 @@
     "prettier": "^3.8.3",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.4.0"
   }
 }
