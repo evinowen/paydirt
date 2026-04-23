@@ -86,11 +86,13 @@ const JobLine: React.FC<{ job: JobPosting; index: number; selected: boolean }> =
         color={selected ? 'black' : col}
         bold={selected}
       >
-        {` ${String(index + 1).padStart(3)}. [${src}] ${job.title} @ ${job.company}${job.easyApply ? ' [EA]' : ''}`}
+        {` ${String(index + 1).padStart(3)}. [${src}] ${job.title.replace(/\s+/g, ' ').trim()} @ ${job.company}${job.easyApply ? ' [EA]' : ''}`}
       </Text>
     </Box>
   )
 }
+
+const DOTS = ['·', '··', '···']
 
 const JobExpanded: React.FC<{ job: JobPosting; scroll: number; rows: number; loading: boolean }> = ({
   job,
@@ -98,7 +100,17 @@ const JobExpanded: React.FC<{ job: JobPosting; scroll: number; rows: number; loa
   rows,
   loading,
 }) => {
+  const [dotIdx, setDotIdx] = useState(0)
+  useEffect(() => {
+    if (!loading) return
+    const t = setInterval(() => setDotIdx((i) => (i + 1) % DOTS.length), 400)
+    return () => clearInterval(t)
+  }, [loading])
+
   const col = JOB_STATUS_COLOR[job.status] ?? 'white'
+  const cols = process.stdout.columns ?? 80
+  const rawTitle = job.title.replace(/\s+/g, ' ').trim()
+  const displayTitle = rawTitle.length > cols - 6 ? rawTitle.slice(0, cols - 7) + '…' : rawTitle
   const descHeight = Math.max(1, rows - 11)
   const hasContent = job.description.trim().length > 0
   const descLines = hasContent ? job.description.split('\n') : []
@@ -108,7 +120,7 @@ const JobExpanded: React.FC<{ job: JobPosting; scroll: number; rows: number; loa
   return (
     <Box flexDirection="column">
       <Box borderStyle="single" borderColor="yellow" flexDirection="column" paddingX={1}>
-        <Text bold>{job.title}</Text>
+        <Text bold>{displayTitle}</Text>
         <Text>
           {'Company: '}
           <Text bold>{job.company}</Text>
@@ -141,14 +153,12 @@ const JobExpanded: React.FC<{ job: JobPosting; scroll: number; rows: number; loa
           {' Description '}
         </Text>
         {loading ? (
-          <Text color="grey">Fetching description...</Text>
+          <Text color="grey">{'Fetching' + DOTS[dotIdx]}</Text>
         ) : !hasContent ? (
           <Text color="grey">No description available.</Text>
         ) : (
           visible.map((line, i) => (
-            <Text key={i} wrap="truncate">
-              {line}
-            </Text>
+            <Text key={i}>{line}</Text>
           ))
         )}
       </Box>
@@ -174,7 +184,7 @@ const JobDetail: React.FC<{ job?: JobPosting }> = ({ job }) => {
   const col = JOB_STATUS_COLOR[job.status] ?? 'white'
   return (
     <Box borderStyle="single" borderColor="yellow" flexDirection="column" paddingX={1}>
-      <Text bold>{job.title}</Text>
+      <Text bold wrap="truncate">{job.title.replace(/\s+/g, ' ').trim()}</Text>
       <Text>
         {'Company: '}
         <Text bold>{job.company}</Text>
@@ -226,22 +236,23 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
   useEffect(() => {
     const onLog = ({ message, level }: { message: string; level: string }) =>
       addLog(message, level as LogEntry['level'])
-    const onUpdate = () => { setState({ ...service.getState() }); setDescLoading(false) }
+    const onUpdate = () => setState({ ...service.getState() })
+    const onJobsUpdated = () => { setState({ ...service.getState() }); setDescLoading(false) }
     const onVerify = ({ source }: { source: string }) => {
       addLog(`LinkedIn sent a verification code to your email — enter it below`, 'warn')
       setPendingVerification(source)
       setCommand('')
     }
     service.on('log', onLog)
-    service.on('jobs:found', onUpdate)
-    service.on('jobs:updated', onUpdate)
+    service.on('jobs:found', onJobsUpdated)
+    service.on('jobs:updated', onJobsUpdated)
     service.on('status:change', onUpdate)
     service.on('tick', onUpdate)
     service.on('verification:required', onVerify)
     return () => {
       service.off('log', onLog)
-      service.off('jobs:found', onUpdate)
-      service.off('jobs:updated', onUpdate)
+      service.off('jobs:found', onJobsUpdated)
+      service.off('jobs:updated', onJobsUpdated)
       service.off('status:change', onUpdate)
       service.off('tick', onUpdate)
       service.off('verification:required', onVerify)
