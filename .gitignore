@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .claude/
+logs/
 
 *.yaml
 !config.example.yaml
