@@ -94,8 +94,8 @@ const JobLine: React.FC<{ job: JobPosting; index: number; selected: boolean }> =
   const col = JOB_STATUS_COLOR[job.status] ?? 'white'
   const bg = selected ? 'green' : undefined
   const fg = (c: string) => selected ? 'black' : c
-  const timeLabel = job.isNew ? 'NEW' : fmtRelativeTime(job.foundAt)
-  const statusLine = ` ${String(index + 1).padStart(3)}. [${src}]  ${job.status.toUpperCase()}  ${timeLabel}`
+  const timeLabel = job.isNew ? '' : `  ${fmtRelativeTime(job.foundAt)}`
+  const statusLine = ` ${String(index + 1).padStart(3)}. [${src}]  ${job.status.toUpperCase()}${timeLabel}`
   const titleLine = `  ${job.title.replace(/\s+/g, ' ').trim()} @ ${job.company}${job.easyApply ? ' [EA]' : ''}`
   return (
     <Box flexDirection="column">
