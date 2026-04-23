@@ -1,8 +1,12 @@
+import fs from 'fs'
+import path from 'path'
 import { Page } from 'playwright'
 import { BaseApplicator, ApplicationResult } from './base'
 import { AutomationContext, JobPosting } from '../scrapers/types'
 import { ResumeData } from '../resume/parser'
 import { LinkedInConfig } from '../config/types'
+
+const SESSION_PATH = path.resolve('sessions', 'linkedin.json')
 
 const SEL = {
   loginButton: 'button[type="submit"]',
@@ -17,35 +21,44 @@ export class LinkedInApplicator extends BaseApplicator {
 
   async apply(job: JobPosting, resume: ResumeData, ctx: AutomationContext = {}): Promise<ApplicationResult> {
     const { log = () => {}, promptCode } = ctx
-    const page = await this.launch(false)
+    const page = await this.launch(false, SESSION_PATH)
 
     try {
-      log(`LinkedIn: navigating to login page...`)
-      await page.goto('https://www.linkedin.com/login', { waitUntil: 'domcontentloaded' })
-      await page.waitForSelector('#username', { timeout: 15000 })
+      log(`LinkedIn: checking session...`)
+      await page.goto('https://www.linkedin.com/feed', { waitUntil: 'domcontentloaded' })
 
-      log(`LinkedIn: entering credentials...`)
-      await page.fill('#username', this.config.email)
-      await page.fill('#password', this.config.password)
-      await page.click(SEL.loginButton)
+      if (!/linkedin\.com\/(feed|jobs|mynetwork)/.test(page.url())) {
+        log(`LinkedIn: session expired or not found, logging in...`)
+        await page.goto('https://www.linkedin.com/login', { waitUntil: 'domcontentloaded' })
+        await page.waitForSelector('#username', { timeout: 15000 })
 
-      log(`LinkedIn: waiting for login response...`)
-      await page.waitForURL(
-        /linkedin\.com\/(feed|jobs|mynetwork|checkpoint|challenge|pin|verification)/,
-        { timeout: 30000 },
-      )
-
-      if (/checkpoint|challenge|pin|verification/.test(page.url())) {
-        log('LinkedIn: email verification required — check your inbox', 'warn')
-        if (!promptCode)
-          throw new Error(
-            'LinkedIn requires email verification but no prompt handler is available',
-          )
-        const code = await promptCode('linkedin')
-        await page.fill(SEL.verifyInput, code)
+        log(`LinkedIn: entering credentials...`)
+        await page.fill('#username', this.config.email)
+        await page.fill('#password', this.config.password)
         await page.click(SEL.loginButton)
-        log('LinkedIn: submitting verification code, waiting for login...')
-        await page.waitForURL(/linkedin\.com\/(feed|jobs|mynetwork)/, { timeout: 30000 })
+
+        log(`LinkedIn: waiting for login response...`)
+        await page.waitForURL(
+          /linkedin\.com\/(feed|jobs|mynetwork|checkpoint|challenge|pin|verification)/,
+          { timeout: 30000 },
+        )
+
+        if (/checkpoint|challenge|pin|verification/.test(page.url())) {
+          log('LinkedIn: email verification required — check your inbox', 'warn')
+          if (!promptCode)
+            throw new Error(
+              'LinkedIn requires email verification but no prompt handler is available',
+            )
+          const code = await promptCode('linkedin')
+          await page.fill(SEL.verifyInput, code)
+          await page.click(SEL.loginButton)
+          log('LinkedIn: submitting verification code, waiting for login...')
+          await page.waitForURL(/linkedin\.com\/(feed|jobs|mynetwork)/, { timeout: 30000 })
+        }
+
+        log(`LinkedIn: saving session...`)
+        fs.mkdirSync(path.dirname(SESSION_PATH), { recursive: true })
+        await this.context!.storageState({ path: SESSION_PATH })
       }
 
       log(`LinkedIn: logged in, navigating to job listing...`)
