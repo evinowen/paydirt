@@ -151,9 +151,18 @@ export class LinkedInScraper extends BaseScraper {
       const sel = selectors.join(', ')
       await page.waitForSelector(sel, { timeout: 10000 }).catch(() => {})
 
-      return await page
+      const desc = await page
         .$eval(sel, (el) => (el as HTMLElement).innerText?.trim() ?? el.textContent?.trim() ?? '')
         .catch(() => '')
+
+      if (!desc) {
+        const html = await page.content()
+        const debugPath = path.resolve('logs', 'debug-linkedin-desc.html')
+        fs.writeFileSync(debugPath, html)
+        log(`LinkedIn: no description found — page HTML saved to ${debugPath}`, 'warn')
+      }
+
+      return desc
     } finally {
       await this.close()
     }
