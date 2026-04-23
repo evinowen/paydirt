@@ -94,13 +94,17 @@ const JobLine: React.FC<{ job: JobPosting; index: number; selected: boolean }> =
 
 const DOTS = ['·', '··', '···']
 
-const JobExpanded: React.FC<{ job: JobPosting; scroll: number; rows: number; loading: boolean }> = ({
+const JobExpanded: React.FC<{ job: JobPosting; rows: number; loading: boolean; onClose: () => void }> = ({
   job,
-  scroll,
   rows,
   loading,
+  onClose,
 }) => {
   const [dotIdx, setDotIdx] = useState(0)
+  const [scroll, setScroll] = useState(0)
+
+  useEffect(() => { setScroll(0) }, [job.id])
+
   useEffect(() => {
     if (!loading) return
     const t = setInterval(() => setDotIdx((i) => (i + 1) % DOTS.length), 400)
@@ -117,6 +121,13 @@ const JobExpanded: React.FC<{ job: JobPosting; scroll: number; rows: number; loa
   const maxScroll = Math.max(0, descLines.length - descHeight)
   const clamped = Math.min(scroll, maxScroll)
   const visible = descLines.slice(clamped, clamped + descHeight)
+
+  useInput((_input, key) => {
+    if (key.escape || key.backspace) { onClose() }
+    if (key.upArrow) setScroll((prev) => Math.max(0, prev - 1))
+    if (key.downArrow) setScroll((prev) => Math.min(maxScroll, prev + 1))
+  })
+
   return (
     <Box flexDirection="column">
       <Box borderStyle="single" borderColor="yellow" flexDirection="column" paddingX={1}>
@@ -219,7 +230,6 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
   const [command, setCommand] = useState('')
   const [selectedJob, setSelectedJob] = useState(0)
   const [expandedJob, setExpandedJob] = useState(false)
-  const [descScroll, setDescScroll] = useState(0)
   const [descLoading, setDescLoading] = useState(false)
   const [pendingVerification, setPendingVerification] = useState<string | null>(null)
 
@@ -256,18 +266,11 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
     }
   }, [service, addLog])
 
-  useInput((_input: string, key: { upArrow: boolean; downArrow: boolean; return: boolean; escape: boolean; backspace: boolean }) => {
-    if (command !== '') return
-    if (expandedJob) {
-      if (key.escape || key.backspace) { setExpandedJob(false); setDescScroll(0); setDescLoading(false) }
-      if (key.upArrow) setDescScroll((prev) => Math.max(0, prev - 1))
-      if (key.downArrow) setDescScroll((prev) => prev + 1)
-      return
-    }
+  useInput((_input: string, key: { upArrow: boolean; downArrow: boolean; return: boolean }) => {
+    if (command !== '' || expandedJob) return
     if (key.return && state.jobs[selectedJob]) {
       const job = state.jobs[selectedJob]
       setExpandedJob(true)
-      setDescScroll(0)
       if (!job.description) {
         setDescLoading(true)
         service.fetchJobDescription(job.id)
@@ -321,7 +324,7 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
     return (
       <Box flexDirection="column">
         <Header state={state} />
-        <JobExpanded job={state.jobs[selectedJob]} scroll={descScroll} rows={rows} loading={descLoading} />
+        <JobExpanded job={state.jobs[selectedJob]} rows={rows} loading={descLoading} onClose={() => { setExpandedJob(false); setDescLoading(false) }} />
       </Box>
     )
   }
