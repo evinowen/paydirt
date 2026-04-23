@@ -425,6 +425,9 @@ export class TUI {
   constructor(private service: JobSearchService) {}
 
   async start(): Promise<void> {
-    await render(<App service={this.service} />).waitUntilExit()
+    const { waitUntilExit, clear } = render(<App service={this.service} />)
+    await waitUntilExit()
+    clear()
+    console.clear()
   }
 }
