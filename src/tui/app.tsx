@@ -123,9 +123,6 @@ const JobDetail: React.FC<{ job?: JobPosting }> = ({ job }) => {
           </>
         ) : null}
       </Text>
-      <Text color="grey">
-        {job.url}
-      </Text>
     </Box>
   )
 }
@@ -259,6 +256,10 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
 
           <JobDetail job={state.jobs[selectedJob]} />
         </Box>
+      </Box>
+
+      <Box>
+        <Text color="grey">{state.jobs[selectedJob]?.url ?? ''}</Text>
       </Box>
 
       <Box>
