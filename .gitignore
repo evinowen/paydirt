@@ -2,6 +2,7 @@ node_modules/
 dist/
 .claude/
 logs/
+sessions/
 
 *.yaml
 !config.example.yaml
