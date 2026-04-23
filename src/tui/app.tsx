@@ -123,7 +123,7 @@ const JobDetail: React.FC<{ job?: JobPosting }> = ({ job }) => {
           </>
         ) : null}
       </Text>
-      <Text color="grey" wrap="truncate-end">
+      <Text color="grey">
         {job.url}
       </Text>
     </Box>
