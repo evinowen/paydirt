@@ -150,6 +150,31 @@ export class JobSearchService extends EventEmitter {
     this.scheduleSearch(this.state.config.search.interval * 60 * 1000)
   }
 
+  async fetchJobDescription(jobId: string): Promise<void> {
+    const job = this.state.jobs.find((j) => j.id === jobId)
+    if (!job || job.description) return
+    try {
+      let description = ''
+      if (job.source === 'linkedin' && this.state.config.linkedin) {
+        description = await new LinkedInScraper(this.state.config.linkedin).fetchDescription(
+          job.url,
+          { log: (msg, level) => this.log(msg, level) },
+        )
+      } else if (job.source === 'indeed' && this.state.config.indeed) {
+        description = await new IndeedScraper(this.state.config.indeed).fetchDescription(job.url)
+      } else if (job.source === 'glassdoor' && this.state.config.glassdoor) {
+        description = await new GlassdoorScraper(this.state.config.glassdoor).fetchDescription(
+          job.url,
+        )
+      }
+      job.description = description || ' '
+    } catch (err) {
+      this.log(`Failed to fetch description for ${job.title}: ${err}`, 'error')
+      job.description = ' '
+    }
+    this.emit('jobs:updated', this.state.jobs)
+  }
+
   async applyToJob(jobId: string): Promise<void> {
     const job = this.state.jobs.find((j) => j.id === jobId)
     if (!job) {
