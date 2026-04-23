@@ -23,6 +23,7 @@ export function processCommand(raw: string, service: JobSearchService): CommandR
           '  apply <n1,n2,...>        Apply to multiple jobs by number',
           '  skip <n|all>             Skip job(s)',
           '  jobs                     List all current postings',
+          '  closed                   Toggle closed postings view',
           '  config set <key> <val>   Set config value (e.g. config set search.interval 30)',
           '  config get <key>         Get config value',
           '  config list              Show full config',
@@ -34,6 +35,10 @@ export function processCommand(raw: string, service: JobSearchService): CommandR
     case 'search':
       service.runSearch()
       return { success: true }
+
+    case 'closed':
+      service.toggleShowClosed()
+      return { success: true, message: service.getState().showClosed ? 'Showing closed postings' : 'Showing active postings' }
 
     case 'reload':
       service.reloadConfig()

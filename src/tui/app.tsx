@@ -24,6 +24,18 @@ const JOB_STATUS_COLOR: Record<string, string> = {
   applied: 'green',
   skipped: 'grey',
   failed: 'red',
+  closed: 'grey',
+}
+
+function fmtRelativeTime(date: Date): string {
+  const secs = Math.floor((Date.now() - date.getTime()) / 1000)
+  if (secs < 60) return 'just now'
+  const mins = Math.floor(secs / 60)
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  return `${days}d ago`
 }
 const MAX_LOGS = 500
 
@@ -45,10 +57,11 @@ const Header: React.FC<{ state: ServiceState }> = ({ state }) => {
     ? fmtCountdown(state.nextSearch.getTime() - Date.now())
     : '--:--'
   const newCount = state.jobs.filter((j) => j.status === 'new').length
-  const label = `  PAYDIRT  |  Status: ${state.status.toUpperCase()}  |  Next: ${countdown}  |  ${newCount} new / ${state.jobs.length} total`
+  const closedSuffix = state.showClosed ? `  |  ${state.closedJobs.length} closed` : ''
+  const label = `  PAYDIRT  |  Status: ${state.status.toUpperCase()}  |  Next: ${countdown}  |  ${newCount} new / ${state.jobs.length} total${closedSuffix}`
   return (
     <Box paddingX={1}>
-      <Text backgroundColor="blue" color="white" bold>
+      <Text backgroundColor={state.showClosed ? 'grey' : 'blue'} color="white" bold>
         {label}
       </Text>
     </Box>
@@ -79,6 +92,7 @@ const JobLine: React.FC<{ job: JobPosting; index: number; selected: boolean }> =
 }) => {
   const src = SOURCE_LABEL[job.source] ?? '??'
   const col = JOB_STATUS_COLOR[job.status] ?? 'white'
+  const badge = job.isNew ? ' NEW' : ` ${fmtRelativeTime(job.foundAt)}`
   return (
     <Box>
       <Text
@@ -86,7 +100,21 @@ const JobLine: React.FC<{ job: JobPosting; index: number; selected: boolean }> =
         color={selected ? 'black' : col}
         bold={selected}
       >
-        {` ${String(index + 1).padStart(3)}. [${src}] ${job.title.replace(/\s+/g, ' ').trim()} @ ${job.company}${job.easyApply ? ' [EA]' : ''}`}
+        {` ${String(index + 1).padStart(3)}. [${src}]`}
+      </Text>
+      <Text
+        backgroundColor={selected ? 'green' : undefined}
+        color={selected ? 'black' : (job.isNew ? 'yellow' : 'grey')}
+        bold={selected}
+      >
+        {badge}
+      </Text>
+      <Text
+        backgroundColor={selected ? 'green' : undefined}
+        color={selected ? 'black' : col}
+        bold={selected}
+      >
+        {` ${job.title.replace(/\s+/g, ' ').trim()} @ ${job.company}${job.easyApply ? ' [EA]' : ''}`}
       </Text>
     </Box>
   )
@@ -266,10 +294,12 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
     }
   }, [service, addLog])
 
+  const visibleJobs = state.showClosed ? state.closedJobs : state.jobs
+
   useInput((_input: string, key: { upArrow: boolean; downArrow: boolean; return: boolean }) => {
     if (command !== '' || expandedJob) return
-    if (key.return && state.jobs[selectedJob]) {
-      const job = state.jobs[selectedJob]
+    if (key.return && visibleJobs[selectedJob]) {
+      const job = visibleJobs[selectedJob]
       setExpandedJob(true)
       if (!job.description) {
         setDescLoading(true)
@@ -278,7 +308,7 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
     }
     if (key.upArrow) setSelectedJob((prev) => Math.max(0, prev - 1))
     if (key.downArrow)
-      setSelectedJob((prev) => Math.min(Math.max(0, state.jobs.length - 1), prev + 1))
+      setSelectedJob((prev) => Math.min(Math.max(0, visibleJobs.length - 1), prev + 1))
   })
 
   const handleSubmit = useCallback(
@@ -320,11 +350,11 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
   const jobsHeight = Math.floor(mainHeight / 2)
   const recentLogs = logs.slice(-mainHeight)
 
-  if (expandedJob && state.jobs[selectedJob]) {
+  if (expandedJob && visibleJobs[selectedJob]) {
     return (
       <Box flexDirection="column">
         <Header state={state} />
-        <JobExpanded job={state.jobs[selectedJob]} rows={rows} loading={descLoading} onClose={() => { setExpandedJob(false); setDescLoading(false) }} />
+        <JobExpanded job={visibleJobs[selectedJob]} rows={rows} loading={descLoading} onClose={() => { setExpandedJob(false); setDescLoading(false) }} />
       </Box>
     )
   }
@@ -347,29 +377,29 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
           <Box
             flexDirection="column"
             borderStyle="single"
-            borderColor="green"
+            borderColor={state.showClosed ? 'grey' : 'green'}
             height={jobsHeight}
           >
-            <Text bold color="green">
-              {' Job Postings '}
+            <Text bold color={state.showClosed ? 'grey' : 'green'}>
+              {state.showClosed ? ' Closed Postings ' : ' Job Postings '}
             </Text>
-            {state.jobs.length === 0 ? (
+            {visibleJobs.length === 0 ? (
               <Text color="grey">{'  No jobs found yet'}</Text>
             ) : (
-              state.jobs.slice(0, jobsHeight - 2).map((job, i) => (
+              visibleJobs.slice(0, jobsHeight - 2).map((job, i) => (
                 <JobLine key={job.id} job={job} index={i} selected={i === selectedJob} />
               ))
             )}
           </Box>
 
-          <JobDetail job={state.jobs[selectedJob]} />
+          <JobDetail job={visibleJobs[selectedJob]} />
         </Box>
       </Box>
 
       <Box>
         <Text color="grey" wrap="truncate">
-          {state.jobs[selectedJob]?.url
-            ? `\x1b]8;;${state.jobs[selectedJob].url}\x1b\\↗\x1b]8;;\x1b\\ ${state.jobs[selectedJob].url}`
+          {visibleJobs[selectedJob]?.url
+            ? `\x1b]8;;${visibleJobs[selectedJob].url}\x1b\\↗\x1b]8;;\x1b\\ ${visibleJobs[selectedJob].url}`
             : ''}
         </Text>
       </Box>
