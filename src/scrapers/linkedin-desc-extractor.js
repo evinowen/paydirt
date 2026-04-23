@@ -12,9 +12,9 @@ window.__extractLinkedInDescription = function () {
     var tag = node.tagName.toLowerCase()
     if (['script', 'style', 'button', 'svg', 'img'].indexOf(tag) >= 0) return ''
     var inner = Array.from(node.childNodes).map(convert).join('')
-    if (tag === 'h1') return '\n' + BOLD + CYAN + inner.trim() + RESET + '\n'
-    if (tag === 'h2') return '\n' + BOLD + YELLOW + inner.trim() + RESET + '\n'
-    if (tag === 'h3' || tag === 'h4' || tag === 'h5' || tag === 'h6') return '\n' + BOLD + inner.trim() + RESET + '\n'
+    if (tag === 'h1') return '\n\n' + BOLD + CYAN + inner.trim() + RESET + '\n'
+    if (tag === 'h2') return '\n\n' + BOLD + YELLOW + inner.trim() + RESET + '\n'
+    if (tag === 'h3' || tag === 'h4' || tag === 'h5' || tag === 'h6') return '\n\n' + BOLD + inner.trim() + RESET + '\n'
     if (tag === 'strong' || tag === 'b') return BOLD + inner + RESET
     if (tag === 'em' || tag === 'i') return GREY + inner + RESET
     if (tag === 'br') return '\n'
