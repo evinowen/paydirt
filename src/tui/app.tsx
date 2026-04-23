@@ -92,29 +92,18 @@ const JobLine: React.FC<{ job: JobPosting; index: number; selected: boolean }> =
 }) => {
   const src = SOURCE_LABEL[job.source] ?? '??'
   const col = JOB_STATUS_COLOR[job.status] ?? 'white'
-  const badge = job.isNew ? ' NEW' : ` ${fmtRelativeTime(job.foundAt)}`
+  const bg = selected ? 'green' : undefined
+  const fg = (c: string) => selected ? 'black' : c
+  const timeLabel = job.isNew ? 'NEW' : fmtRelativeTime(job.foundAt)
+  const statusLine = ` ${String(index + 1).padStart(3)}. [${src}]  ${job.status.toUpperCase()}  ${timeLabel}`
+  const titleLine = `  ${job.title.replace(/\s+/g, ' ').trim()} @ ${job.company}${job.easyApply ? ' [EA]' : ''}`
   return (
-    <Box>
-      <Text
-        backgroundColor={selected ? 'green' : undefined}
-        color={selected ? 'black' : col}
-        bold={selected}
-      >
-        {` ${String(index + 1).padStart(3)}. [${src}]`}
+    <Box flexDirection="column">
+      <Text backgroundColor={bg} color={fg(job.isNew ? 'yellow' : 'grey')} bold={selected} wrap="truncate">
+        {statusLine}
       </Text>
-      <Text
-        backgroundColor={selected ? 'green' : undefined}
-        color={selected ? 'black' : (job.isNew ? 'yellow' : 'grey')}
-        bold={selected}
-      >
-        {badge}
-      </Text>
-      <Text
-        backgroundColor={selected ? 'green' : undefined}
-        color={selected ? 'black' : col}
-        bold={selected}
-      >
-        {` ${job.title.replace(/\s+/g, ' ').trim()} @ ${job.company}${job.easyApply ? ' [EA]' : ''}`}
+      <Text backgroundColor={bg} color={fg(col)} bold={selected} wrap="truncate">
+        {titleLine}
       </Text>
     </Box>
   )
@@ -386,7 +375,7 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
             {visibleJobs.length === 0 ? (
               <Text color="grey">{'  No jobs found yet'}</Text>
             ) : (
-              visibleJobs.slice(0, jobsHeight - 2).map((job, i) => (
+              visibleJobs.slice(0, Math.floor((jobsHeight - 2) / 2)).map((job, i) => (
                 <JobLine key={job.id} job={job} index={i} selected={i === selectedJob} />
               ))
             )}
