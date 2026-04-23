@@ -132,4 +132,21 @@ export class LinkedInScraper extends BaseScraper {
 
     return this.applyFilters(jobs, options)
   }
+
+  async fetchDescription(url: string, ctx: AutomationContext = {}): Promise<string> {
+    const { log = () => {} } = ctx
+    const page = await this.launch(true, SESSION_PATH)
+    try {
+      log(`LinkedIn: fetching description from ${url}`)
+      await page.goto(url, { waitUntil: 'domcontentloaded' })
+      return await page
+        .$eval(
+          '.jobs-description-content__text, .jobs-description__content, #job-details',
+          (el) => el.textContent?.trim() ?? '',
+        )
+        .catch(() => '')
+    } finally {
+      await this.close()
+    }
+  }
 }

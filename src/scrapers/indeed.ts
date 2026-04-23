@@ -76,4 +76,19 @@ export class IndeedScraper extends BaseScraper {
 
     return this.applyFilters(jobs, options)
   }
+
+  async fetchDescription(url: string): Promise<string> {
+    const page = await this.launch(true)
+    try {
+      await page.goto(url, { waitUntil: 'domcontentloaded' })
+      return await page
+        .$eval(
+          '#jobDescriptionText, .jobsearch-JobComponent-description',
+          (el) => el.textContent?.trim() ?? '',
+        )
+        .catch(() => '')
+    } finally {
+      await this.close()
+    }
+  }
 }
