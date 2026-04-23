@@ -11,6 +11,7 @@
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { loadConfig } from '../src/config/loader.js'
+import { FileLogger } from '../src/logger/file.js'
 import { LinkedInScraper } from '../src/scrapers/linkedin.js'
 import { IndeedScraper } from '../src/scrapers/indeed.js'
 import { GlassdoorScraper } from '../src/scrapers/glassdoor.js'
@@ -20,9 +21,13 @@ import readline from 'readline'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '..')
 
+const fileLogger = new FileLogger(path.join(projectRoot, 'logs'))
+fileLogger.init()
+
 function log(msg: string, level: 'info' | 'warn' | 'error' = 'info') {
   const prefix = level === 'error' ? '  [ERROR]' : level === 'warn' ? '  [WARN] ' : '  [INFO] '
   console.log(`${prefix} ${msg}`)
+  fileLogger.write(msg, level)
 }
 
 async function promptCode(source: string): Promise<string> {
@@ -110,9 +115,11 @@ async function main() {
   }
 
   console.log('\nDone.')
+  fileLogger.close()
 }
 
 main().catch((err) => {
   console.error('Fatal:', err)
+  fileLogger.close()
   process.exit(1)
 })
