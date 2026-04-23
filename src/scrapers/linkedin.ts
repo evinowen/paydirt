@@ -1,9 +1,12 @@
 import fs from 'fs'
 import path from 'path'
+import { fileURLToPath } from 'url'
 import { v4 as uuidv4 } from 'uuid'
 import { BaseScraper } from './base'
 import { AutomationContext, JobPosting, SearchOptions } from './types'
 import { LinkedInConfig } from '../config/types'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const SESSION_PATH = path.resolve('sessions', 'linkedin.json')
 
