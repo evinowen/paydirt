@@ -259,7 +259,11 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
       </Box>
 
       <Box>
-        <Text color="grey">{state.jobs[selectedJob]?.url ?? ''}</Text>
+        <Text color="grey" wrap="truncate">
+          {state.jobs[selectedJob]?.url
+            ? `\x1b]8;;${state.jobs[selectedJob].url}\x1b\\↗\x1b]8;;\x1b\\ ${state.jobs[selectedJob].url}`
+            : ''}
+        </Text>
       </Box>
 
       <Box>
