@@ -7,7 +7,7 @@ export interface AutomationContext {
 }
 
 export type JobSource = 'linkedin' | 'indeed' | 'glassdoor'
-export type JobStatus = 'new' | 'applied' | 'skipped' | 'failed'
+export type JobStatus = 'new' | 'applied' | 'skipped' | 'failed' | 'closed'
 
 export interface JobPosting {
   id: string
@@ -20,8 +20,10 @@ export interface JobPosting {
   source: JobSource
   postedAt?: string
   foundAt: Date
+  fetchedAt: Date
   status: JobStatus
   easyApply: boolean
+  isNew: boolean
 }
 
 export interface SearchOptions {
