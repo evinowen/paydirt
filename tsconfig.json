@@ -1,7 +1,8 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "module": "commonjs",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "lib": ["ES2020", "DOM"],
     "outDir": "./dist",
     "rootDir": "./src",
@@ -9,13 +10,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "moduleResolution": "node",
-    "jsx": "react-jsx",
-    "baseUrl": ".",
-    "paths": {
-      "ink": ["node_modules/ink/build/index"],
-      "ink-text-input": ["node_modules/ink-text-input/build/index"]
-    }
+    "jsx": "react-jsx"
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
