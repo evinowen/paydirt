@@ -92,6 +92,65 @@ const JobLine: React.FC<{ job: JobPosting; index: number; selected: boolean }> =
   )
 }
 
+const JobExpanded: React.FC<{ job: JobPosting; scroll: number; rows: number }> = ({
+  job,
+  scroll,
+  rows,
+}) => {
+  const col = JOB_STATUS_COLOR[job.status] ?? 'white'
+  const descLines = job.description.split('\n')
+  const descHeight = Math.max(1, rows - 11)
+  const maxScroll = Math.max(0, descLines.length - descHeight)
+  const clamped = Math.min(scroll, maxScroll)
+  const visible = descLines.slice(clamped, clamped + descHeight)
+  return (
+    <Box flexDirection="column">
+      <Box borderStyle="single" borderColor="yellow" flexDirection="column" paddingX={1}>
+        <Text bold>{job.title}</Text>
+        <Text>
+          {'Company: '}
+          <Text bold>{job.company}</Text>
+          {'  Location: '}
+          {job.location}
+          {job.salary ? `  Salary: ${job.salary}` : ''}
+        </Text>
+        <Text>
+          {'Source: '}
+          {job.source}
+          {'  Status: '}
+          <Text color={col}>{job.status}</Text>
+          {job.easyApply ? (
+            <>
+              {'  '}
+              <Text color="green">[Easy Apply]</Text>
+            </>
+          ) : null}
+          {job.postedAt ? `  Posted: ${job.postedAt}` : ''}
+        </Text>
+      </Box>
+      <Box
+        flexDirection="column"
+        borderStyle="single"
+        borderColor="white"
+        paddingX={1}
+        height={descHeight + 3}
+      >
+        <Text bold color="white">
+          {' Description '}
+        </Text>
+        {visible.map((line, i) => (
+          <Text key={i} wrap="truncate">
+            {line}
+          </Text>
+        ))}
+      </Box>
+      <Box>
+        <Text color="grey">{` ↑↓ scroll  ESC back  (lines ${clamped + 1}–${Math.min(clamped + descHeight, descLines.length)} of ${descLines.length})`}</Text>
+      </Box>
+    </Box>
+  )
+}
+
 const JobDetail: React.FC<{ job?: JobPosting }> = ({ job }) => {
   if (!job) {
     return (
@@ -140,6 +199,8 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
   ])
   const [command, setCommand] = useState('')
   const [selectedJob, setSelectedJob] = useState(0)
+  const [expandedJob, setExpandedJob] = useState(false)
+  const [descScroll, setDescScroll] = useState(0)
   const [pendingVerification, setPendingVerification] = useState<string | null>(null)
 
   const addLog = useCallback((text: string, level: LogEntry['level'] = 'info') => {
@@ -174,9 +235,15 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
     }
   }, [service, addLog])
 
-  // Arrow keys navigate the job list only when the command input is empty
-  useInput((_input: string, key: { upArrow: boolean; downArrow: boolean }) => {
+  useInput((_input: string, key: { upArrow: boolean; downArrow: boolean; return: boolean; escape: boolean }) => {
     if (command !== '') return
+    if (expandedJob) {
+      if (key.escape) { setExpandedJob(false); setDescScroll(0) }
+      if (key.upArrow) setDescScroll((prev) => Math.max(0, prev - 1))
+      if (key.downArrow) setDescScroll((prev) => prev + 1)
+      return
+    }
+    if (key.return && state.jobs[selectedJob]) { setExpandedJob(true); setDescScroll(0) }
     if (key.upArrow) setSelectedJob((prev) => Math.max(0, prev - 1))
     if (key.downArrow)
       setSelectedJob((prev) => Math.min(Math.max(0, state.jobs.length - 1), prev + 1))
@@ -220,6 +287,15 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
   const mainHeight = Math.max(8, rows - 7)
   const jobsHeight = Math.floor(mainHeight / 2)
   const recentLogs = logs.slice(-mainHeight)
+
+  if (expandedJob && state.jobs[selectedJob]) {
+    return (
+      <Box flexDirection="column">
+        <Header state={state} />
+        <JobExpanded job={state.jobs[selectedJob]} scroll={descScroll} rows={rows} />
+      </Box>
+    )
+  }
 
   return (
     <Box flexDirection="column">
