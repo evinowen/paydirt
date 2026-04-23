@@ -149,9 +149,6 @@ const JobExpanded: React.FC<{ job: JobPosting; scroll: number; rows: number; loa
         paddingX={1}
         height={descHeight + 3}
       >
-        <Text bold color="white">
-          {' Description '}
-        </Text>
         {loading ? (
           <Text color="grey">{'Fetching' + DOTS[dotIdx]}</Text>
         ) : !hasContent ? (
