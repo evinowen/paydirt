@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 export const SearchConfigSchema = z.object({
   interval: z.number().min(1).default(60),
+  max_pages: z.number().min(1).default(5),
   keywords: z.array(z.string()).min(1),
   location: z.string(),
   remote: z.boolean().optional(),

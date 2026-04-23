@@ -57,48 +57,55 @@ export class GlassdoorScraper extends BaseScraper {
 
       log('Glassdoor: logged in')
 
+      const maxPages = options.max_pages ?? 5
+
       for (const keyword of options.keywords) {
         log(`Glassdoor: searching for "${keyword}" in ${options.location}...`)
-        const url = new URL('https://www.glassdoor.com/Job/jobs.htm')
-        url.searchParams.set('sc.keyword', keyword)
-        url.searchParams.set('locKeyword', options.location)
-        if (options.remote) url.searchParams.set('remoteWorkType', '1')
+        const baseUrl = new URL('https://www.glassdoor.com/Job/jobs.htm')
+        baseUrl.searchParams.set('sc.keyword', keyword)
+        baseUrl.searchParams.set('locKeyword', options.location)
+        if (options.remote) baseUrl.searchParams.set('remoteWorkType', '1')
 
-        await page.goto(url.toString(), { waitUntil: 'domcontentloaded' })
-        await page.waitForSelector(SEL.jobCards, { timeout: 15000 }).catch(() => {})
+        for (let pageNum = 0; pageNum < maxPages; pageNum++) {
+          if (pageNum > 0) baseUrl.searchParams.set('p', String(pageNum + 1))
+          await page.goto(baseUrl.toString(), { waitUntil: 'domcontentloaded' })
+          await page.waitForSelector(SEL.jobCards, { timeout: 15000 }).catch(() => {})
 
-        const cards = await page.$$(SEL.jobCards)
-        log(`Glassdoor: found ${cards.length} card(s) for "${keyword}", extracting details...`)
-        for (const card of cards.slice(0, 25)) {
-          const title = await card
-            .$eval(SEL.jobTitle, (el) => el.textContent?.trim() ?? '')
-            .catch(() => '')
-          const company = await card
-            .$eval(SEL.jobCompany, (el) => el.textContent?.trim() ?? '')
-            .catch(() => '')
-          const location = await card
-            .$eval(SEL.jobLocation, (el) => el.textContent?.trim() ?? '')
-            .catch(() => '')
-          const href = await card
-            .$eval(SEL.jobLink, (el: Element) => (el as HTMLAnchorElement).href)
-            .catch(() => '')
+          const cards = await page.$$(SEL.jobCards)
+          log(`Glassdoor: page ${pageNum + 1} — ${cards.length} card(s) for "${keyword}"`)
+          if (cards.length === 0) break
 
-          if (title && company && href) {
-            const now = new Date()
-            jobs.push({
-              id: uuidv4(),
-              title,
-              company,
-              location,
-              url: href,
-              easyApply: false,
-              description: '',
-              source: 'glassdoor',
-              foundAt: now,
-              fetchedAt: now,
-              status: 'new',
-              isNew: true,
-            })
+          for (const card of cards) {
+            const title = await card
+              .$eval(SEL.jobTitle, (el) => el.textContent?.trim() ?? '')
+              .catch(() => '')
+            const company = await card
+              .$eval(SEL.jobCompany, (el) => el.textContent?.trim() ?? '')
+              .catch(() => '')
+            const location = await card
+              .$eval(SEL.jobLocation, (el) => el.textContent?.trim() ?? '')
+              .catch(() => '')
+            const href = await card
+              .$eval(SEL.jobLink, (el: Element) => (el as HTMLAnchorElement).href)
+              .catch(() => '')
+
+            if (title && company && href) {
+              const now = new Date()
+              jobs.push({
+                id: uuidv4(),
+                title,
+                company,
+                location,
+                url: href,
+                easyApply: false,
+                description: '',
+                source: 'glassdoor',
+                foundAt: now,
+                fetchedAt: now,
+                status: 'new',
+                isNew: true,
+              })
+            }
           }
         }
       }

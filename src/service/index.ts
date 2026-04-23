@@ -112,6 +112,7 @@ export class JobSearchService extends EventEmitter {
       experience_level: this.state.config.search.experience_level,
       exclude_companies: this.state.config.filters?.exclude_companies,
       exclude_keywords: this.state.config.filters?.exclude_keywords,
+      max_pages: this.state.config.search.max_pages,
     }
 
     const found: JobPosting[] = []

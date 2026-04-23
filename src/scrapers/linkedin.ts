@@ -78,58 +78,67 @@ export class LinkedInScraper extends BaseScraper {
 
       log('LinkedIn: logged in')
 
+      const maxPages = options.max_pages ?? 5
+      const pageSize = 25
+
       for (const keyword of options.keywords) {
         log(`LinkedIn: searching for "${keyword}" in ${options.location}...`)
-        const url = new URL('https://www.linkedin.com/jobs/search/')
-        url.searchParams.set('keywords', keyword)
-        url.searchParams.set('location', options.location)
-        if (options.remote) url.searchParams.set('f_WT', '2')
+        const baseUrl = new URL('https://www.linkedin.com/jobs/search/')
+        baseUrl.searchParams.set('keywords', keyword)
+        baseUrl.searchParams.set('location', options.location)
+        if (options.remote) baseUrl.searchParams.set('f_WT', '2')
 
-        await page.goto(url.toString(), { waitUntil: 'domcontentloaded' })
-        await page.waitForSelector(SEL.jobCards, { timeout: 15000 }).catch(() => {})
+        for (let pageNum = 0; pageNum < maxPages; pageNum++) {
+          baseUrl.searchParams.set('start', String(pageNum * pageSize))
+          await page.goto(baseUrl.toString(), { waitUntil: 'domcontentloaded' })
+          await page.waitForSelector(SEL.jobCards, { timeout: 15000 }).catch(() => {})
 
-        const cards = await page.$$(SEL.jobCards)
-        log(`LinkedIn: found ${cards.length} card(s) for "${keyword}", extracting details...`)
+          const cards = await page.$$(SEL.jobCards)
+          log(`LinkedIn: page ${pageNum + 1} — ${cards.length} card(s) for "${keyword}"`)
+          if (cards.length === 0) break
 
-        for (const card of cards.slice(0, 25)) {
-          const title = await card
-            .$eval(SEL.jobTitle, (el) => el.textContent?.trim() ?? '')
-            .catch(() => '')
-          const company = await card
-            .$eval(SEL.jobCompany, (el) => el.textContent?.trim() ?? '')
-            .catch(() => '')
-          const location = await card
-            .$eval(SEL.jobLocation, (el) => el.textContent?.trim() ?? '')
-            .catch(() => '')
-          const href = await card
-            .$eval(SEL.jobLink, (el: Element) => (el as HTMLAnchorElement).href)
-            .catch(() => '')
-          const easyApply = await card
-            .$eval(SEL.easyApplyBadge, (el) => el.textContent?.includes('Easy Apply') ?? false)
-            .catch(() => false)
+          for (const card of cards) {
+            const title = await card
+              .$eval(SEL.jobTitle, (el) => el.textContent?.trim() ?? '')
+              .catch(() => '')
+            const company = await card
+              .$eval(SEL.jobCompany, (el) => el.textContent?.trim() ?? '')
+              .catch(() => '')
+            const location = await card
+              .$eval(SEL.jobLocation, (el) => el.textContent?.trim() ?? '')
+              .catch(() => '')
+            const href = await card
+              .$eval(SEL.jobLink, (el: Element) => (el as HTMLAnchorElement).href)
+              .catch(() => '')
+            const easyApply = await card
+              .$eval(SEL.easyApplyBadge, (el) => el.textContent?.includes('Easy Apply') ?? false)
+              .catch(() => false)
 
-          if (title && company && href) {
-            const now = new Date()
-            jobs.push({
-              id: uuidv4(),
-              title,
-              company,
-              location,
-              url: href,
-              easyApply,
-              description: '',
-              source: 'linkedin',
-              foundAt: now,
-              fetchedAt: now,
-              status: 'new',
-              isNew: true,
-            })
-          } else {
-            const missing = [!title && 'title', !company && 'company', !href && 'url']
-              .filter(Boolean)
-              .join(', ')
-            log(`LinkedIn: skipped card — could not extract: ${missing}`, 'warn')
+            if (title && company && href) {
+              const now = new Date()
+              jobs.push({
+                id: uuidv4(),
+                title,
+                company,
+                location,
+                url: href,
+                easyApply,
+                description: '',
+                source: 'linkedin',
+                foundAt: now,
+                fetchedAt: now,
+                status: 'new',
+                isNew: true,
+              })
+            } else {
+              const missing = [!title && 'title', !company && 'company', !href && 'url']
+                .filter(Boolean)
+                .join(', ')
+              log(`LinkedIn: skipped card — could not extract: ${missing}`, 'warn')
+            }
           }
+
+          if (cards.length < pageSize) break
         }
       }
     } finally {

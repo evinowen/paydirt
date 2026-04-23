@@ -1,5 +1,6 @@
 search:
   interval: 60
+  max_pages: 5
   keywords:
     - Software Engineer
     - TypeScript Developer

@@ -34,4 +34,5 @@ export interface SearchOptions {
   experience_level?: string
   exclude_companies?: string[]
   exclude_keywords?: string[]
+  max_pages?: number
 }
