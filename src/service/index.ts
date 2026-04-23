@@ -9,12 +9,15 @@ import { GlassdoorScraper } from '../scrapers/glassdoor'
 import { LinkedInApplicator } from '../apply/linkedin'
 import { IndeedApplicator } from '../apply/indeed'
 import { GlassdoorApplicator } from '../apply/glassdoor'
+import { StorageService } from '../storage'
 
 export type ServiceStatus = 'idle' | 'searching' | 'applying' | 'error'
 
 export interface ServiceState {
   status: ServiceStatus
   jobs: JobPosting[]
+  closedJobs: JobPosting[]
+  showClosed: boolean
   lastSearch: Date | null
   nextSearch: Date | null
   config: Config
@@ -31,11 +34,14 @@ export class JobSearchService extends EventEmitter {
     config: Config,
     private resume: ResumeData,
     configPath: string,
+    private storage: StorageService,
   ) {
     super()
     this.state = {
       status: 'idle',
       jobs: [],
+      closedJobs: [],
+      showClosed: false,
       lastSearch: null,
       nextSearch: null,
       config,
@@ -45,6 +51,16 @@ export class JobSearchService extends EventEmitter {
 
   start(): void {
     this.log('Paydirt service started')
+    const stored = this.storage.loadActiveJobs()
+    if (stored.length > 0) {
+      this.state.jobs = stored
+      this.log(`Loaded ${stored.length} job(s) from storage`)
+      this.emit('jobs:found', stored)
+    }
+    const closed = this.storage.loadClosedJobs()
+    if (closed.length > 0) {
+      this.state.closedJobs = closed
+    }
     this.scheduleSearch(0)
     this.tickTimer = setInterval(() => this.emit('tick', this.getState()), 1000)
   }
@@ -56,7 +72,12 @@ export class JobSearchService extends EventEmitter {
   }
 
   getState(): ServiceState {
-    return { ...this.state, jobs: [...this.state.jobs] }
+    return { ...this.state, jobs: [...this.state.jobs], closedJobs: [...this.state.closedJobs] }
+  }
+
+  toggleShowClosed(): void {
+    this.state.showClosed = !this.state.showClosed
+    this.emit('status:change', this.getState())
   }
 
   promptVerificationCode(source: string): Promise<string> {
@@ -132,22 +153,90 @@ export class JobSearchService extends EventEmitter {
       }
     }
 
-    const existingUrls = new Set(this.state.jobs.map((j) => j.url))
-    const uniqueNew = found.filter((j) => !existingUrls.has(j.url))
+    const foundUrls = new Set(found.map((j) => j.url))
+    const now = new Date()
 
-    if (uniqueNew.length > 0) {
-      this.state.jobs.push(...uniqueNew)
-      this.log(
-        `Found ${uniqueNew.length} new posting(s). Use "apply all" or "apply <number>" to apply.`,
-      )
-      this.emit('jobs:found', uniqueNew)
-    } else {
-      this.log('No new postings found')
+    // Merge found jobs into in-memory list and persist
+    let newCount = 0
+    for (const job of found) {
+      const existing = this.state.jobs.find((j) => j.url === job.url)
+      if (existing) {
+        existing.fetchedAt = now
+        existing.isNew = true
+        // preserve applied/skipped status
+        if (!['applied', 'skipped', 'failed'].includes(existing.status)) {
+          existing.status = job.status
+        }
+      } else {
+        this.state.jobs.push(job)
+        newCount++
+      }
+      this.storage.upsertJob({ ...job, fetchedAt: now })
     }
 
+    if (newCount > 0) {
+      this.log(`Found ${newCount} new posting(s). Use "apply all" or "apply <number>" to apply.`)
+    } else if (found.length > 0) {
+      this.log(`Search complete — ${found.length} posting(s) confirmed active`)
+    } else {
+      this.log('No postings found')
+    }
+
+    // Check previously-stored jobs that weren't returned in this search
+    await this.checkStalledJobs(foundUrls, options)
+
     this.state.lastSearch = new Date()
+    this.emit('jobs:found', this.state.jobs)
     this.setStatus('idle')
     this.scheduleSearch(this.state.config.search.interval * 60 * 1000)
+  }
+
+  private async checkStalledJobs(foundUrls: Set<string>, _options: SearchOptions): Promise<void> {
+    const toCheck = this.state.jobs.filter(
+      (j) => !foundUrls.has(j.url) && !['applied', 'skipped', 'closed'].includes(j.status),
+    )
+    if (toCheck.length === 0) return
+
+    this.log(`Checking ${toCheck.length} previously-found job(s) still active...`)
+
+    const bySource = new Map<string, JobPosting[]>()
+    for (const job of toCheck) {
+      const list = bySource.get(job.source) ?? []
+      list.push(job)
+      bySource.set(job.source, list)
+    }
+
+    const checkBatch = async (scraper: { checkJobsBatch(urls: string[], ctx?: object): Promise<Map<string, boolean>> }, jobs: JobPosting[]) => {
+      try {
+        const results = await scraper.checkJobsBatch(jobs.map((j) => j.url), {
+          log: (msg: string, level?: string) => this.log(msg, level as 'info' | 'warn' | 'error'),
+        })
+        for (const [url, isOpen] of results) {
+          if (!isOpen) {
+            const job = this.state.jobs.find((j) => j.url === url)
+            if (job) {
+              job.status = 'closed'
+              this.storage.markClosed(url)
+              this.state.closedJobs.push(job)
+              this.log(`Marked closed: ${job.title} at ${job.company}`)
+            }
+          }
+        }
+        this.state.jobs = this.state.jobs.filter((j) => j.status !== 'closed')
+      } catch (err) {
+        this.log(`Failed to check job status: ${err}`, 'warn')
+      }
+    }
+
+    if (this.state.config.linkedin && bySource.has('linkedin')) {
+      await checkBatch(new LinkedInScraper(this.state.config.linkedin), bySource.get('linkedin')!)
+    }
+    if (this.state.config.indeed && bySource.has('indeed')) {
+      await checkBatch(new IndeedScraper(this.state.config.indeed), bySource.get('indeed')!)
+    }
+    if (this.state.config.glassdoor && bySource.has('glassdoor')) {
+      await checkBatch(new GlassdoorScraper(this.state.config.glassdoor), bySource.get('glassdoor')!)
+    }
   }
 
   async fetchJobDescription(jobId: string): Promise<void> {
@@ -168,6 +257,7 @@ export class JobSearchService extends EventEmitter {
         )
       }
       job.description = description || ' '
+      this.storage.updateDescription(job.id, job.description)
     } catch (err) {
       this.log(`Failed to fetch description for ${job.title}: ${err}`, 'error')
       job.description = ' '
@@ -217,13 +307,16 @@ export class JobSearchService extends EventEmitter {
 
       if (result.success) {
         job.status = 'applied'
+        this.storage.updateStatus(job.id, 'applied')
         this.log(`Applied to ${job.title} at ${job.company}`)
       } else {
         job.status = 'failed'
+        this.storage.updateStatus(job.id, 'failed')
         this.log(`Failed to apply to ${job.title}: ${result.message}`, 'error')
       }
     } catch (err) {
       job.status = 'failed'
+      this.storage.updateStatus(job.id, 'failed')
       this.log(`Error applying to ${job.title}: ${err}`, 'error')
     }
 
@@ -241,6 +334,7 @@ export class JobSearchService extends EventEmitter {
     const job = this.state.jobs.find((j) => j.id === jobId)
     if (job) {
       job.status = 'skipped'
+      this.storage.updateStatus(job.id, 'skipped')
       this.emit('jobs:updated', this.state.jobs)
     }
   }

@@ -4,6 +4,7 @@ import { ConfigWatcher } from './config/watcher'
 import { FileLogger } from './logger/file'
 import { parseResume } from './resume/parser'
 import { JobSearchService } from './service'
+import { StorageService } from './storage'
 import { TUI } from './tui'
 
 async function main(): Promise<void> {
@@ -31,7 +32,8 @@ async function main(): Promise<void> {
   const logger = new FileLogger(path.resolve('logs'))
   logger.init()
 
-  const service = new JobSearchService(config, resume, absoluteConfigPath)
+  const storage = new StorageService()
+  const service = new JobSearchService(config, resume, absoluteConfigPath, storage)
   service.on('log', ({ message, level }: { message: string; level: string }) => {
     logger.write(message, level)
   })
