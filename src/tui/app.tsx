@@ -256,10 +256,10 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
     }
   }, [service, addLog])
 
-  useInput((_input: string, key: { upArrow: boolean; downArrow: boolean; return: boolean; escape: boolean }) => {
+  useInput((input: string, key: { upArrow: boolean; downArrow: boolean; return: boolean; escape: boolean }) => {
     if (command !== '') return
     if (expandedJob) {
-      if (key.escape) { setExpandedJob(false); setDescScroll(0); setDescLoading(false) }
+      if (key.escape || input === '\x7f') { setExpandedJob(false); setDescScroll(0); setDescLoading(false) }
       if (key.upArrow) setDescScroll((prev) => Math.max(0, prev - 1))
       if (key.downArrow) setDescScroll((prev) => prev + 1)
       return
