@@ -54,6 +54,7 @@ export class IndeedScraper extends BaseScraper {
             .catch(() => '')
 
           if (title && company && href) {
+            const now = new Date()
             jobs.push({
               id: uuidv4(),
               title,
@@ -64,8 +65,10 @@ export class IndeedScraper extends BaseScraper {
               easyApply: false,
               description: '',
               source: 'indeed',
-              foundAt: new Date(),
+              foundAt: now,
+              fetchedAt: now,
               status: 'new',
+              isNew: true,
             })
           }
         }

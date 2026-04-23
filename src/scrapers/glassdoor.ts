@@ -84,6 +84,7 @@ export class GlassdoorScraper extends BaseScraper {
             .catch(() => '')
 
           if (title && company && href) {
+            const now = new Date()
             jobs.push({
               id: uuidv4(),
               title,
@@ -93,8 +94,10 @@ export class GlassdoorScraper extends BaseScraper {
               easyApply: false,
               description: '',
               source: 'glassdoor',
-              foundAt: new Date(),
+              foundAt: now,
+              fetchedAt: now,
               status: 'new',
+              isNew: true,
             })
           }
         }

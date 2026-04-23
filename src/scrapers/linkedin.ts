@@ -109,6 +109,7 @@ export class LinkedInScraper extends BaseScraper {
             .catch(() => false)
 
           if (title && company && href) {
+            const now = new Date()
             jobs.push({
               id: uuidv4(),
               title,
@@ -118,8 +119,10 @@ export class LinkedInScraper extends BaseScraper {
               easyApply,
               description: '',
               source: 'linkedin',
-              foundAt: new Date(),
+              foundAt: now,
+              fetchedAt: now,
               status: 'new',
+              isNew: true,
             })
           } else {
             const missing = [!title && 'title', !company && 'company', !href && 'url']

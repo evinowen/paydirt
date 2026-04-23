@@ -8,6 +8,28 @@ export abstract class BaseScraper {
 
   abstract search(options: SearchOptions, ctx?: AutomationContext): Promise<JobPosting[]>
 
+  async checkJobsBatch(urls: string[], ctx: AutomationContext = {}): Promise<Map<string, boolean>> {
+    const { log = () => {} } = ctx
+    const results = new Map<string, boolean>()
+    if (urls.length === 0) return results
+    const page = await this.launch(true)
+    try {
+      for (const url of urls) {
+        try {
+          const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 })
+          const status = response?.status() ?? 0
+          results.set(url, status < 400)
+        } catch {
+          log(`check failed for ${url}, assuming closed`, 'warn')
+          results.set(url, false)
+        }
+      }
+    } finally {
+      await this.close()
+    }
+    return results
+  }
+
   protected async launch(headless = true, storageStatePath?: string): Promise<Page> {
     this.browser = await chromium.launch({
       headless,
