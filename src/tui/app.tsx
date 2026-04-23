@@ -92,14 +92,16 @@ const JobLine: React.FC<{ job: JobPosting; index: number; selected: boolean }> =
   )
 }
 
-const JobExpanded: React.FC<{ job: JobPosting; scroll: number; rows: number }> = ({
+const JobExpanded: React.FC<{ job: JobPosting; scroll: number; rows: number; loading: boolean }> = ({
   job,
   scroll,
   rows,
+  loading,
 }) => {
   const col = JOB_STATUS_COLOR[job.status] ?? 'white'
-  const descLines = job.description.split('\n')
   const descHeight = Math.max(1, rows - 11)
+  const hasContent = job.description.trim().length > 0
+  const descLines = hasContent ? job.description.split('\n') : []
   const maxScroll = Math.max(0, descLines.length - descHeight)
   const clamped = Math.min(scroll, maxScroll)
   const visible = descLines.slice(clamped, clamped + descHeight)
@@ -138,14 +140,24 @@ const JobExpanded: React.FC<{ job: JobPosting; scroll: number; rows: number }> =
         <Text bold color="white">
           {' Description '}
         </Text>
-        {visible.map((line, i) => (
-          <Text key={i} wrap="truncate">
-            {line}
-          </Text>
-        ))}
+        {loading ? (
+          <Text color="grey">Fetching description...</Text>
+        ) : !hasContent ? (
+          <Text color="grey">No description available.</Text>
+        ) : (
+          visible.map((line, i) => (
+            <Text key={i} wrap="truncate">
+              {line}
+            </Text>
+          ))
+        )}
       </Box>
       <Box>
-        <Text color="grey">{` ↑↓ scroll  ESC back  (lines ${clamped + 1}–${Math.min(clamped + descHeight, descLines.length)} of ${descLines.length})`}</Text>
+        <Text color="grey">
+          {loading || !hasContent
+            ? ' ESC back'
+            : ` ↑↓ scroll  ESC back  (lines ${clamped + 1}–${Math.min(clamped + descHeight, descLines.length)} of ${descLines.length})`}
+        </Text>
       </Box>
     </Box>
   )
@@ -201,6 +213,7 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
   const [selectedJob, setSelectedJob] = useState(0)
   const [expandedJob, setExpandedJob] = useState(false)
   const [descScroll, setDescScroll] = useState(0)
+  const [descLoading, setDescLoading] = useState(false)
   const [pendingVerification, setPendingVerification] = useState<string | null>(null)
 
   const addLog = useCallback((text: string, level: LogEntry['level'] = 'info') => {
@@ -213,7 +226,7 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
   useEffect(() => {
     const onLog = ({ message, level }: { message: string; level: string }) =>
       addLog(message, level as LogEntry['level'])
-    const onUpdate = () => setState({ ...service.getState() })
+    const onUpdate = () => { setState({ ...service.getState() }); setDescLoading(false) }
     const onVerify = ({ source }: { source: string }) => {
       addLog(`LinkedIn sent a verification code to your email — enter it below`, 'warn')
       setPendingVerification(source)
@@ -238,12 +251,20 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
   useInput((_input: string, key: { upArrow: boolean; downArrow: boolean; return: boolean; escape: boolean }) => {
     if (command !== '') return
     if (expandedJob) {
-      if (key.escape) { setExpandedJob(false); setDescScroll(0) }
+      if (key.escape) { setExpandedJob(false); setDescScroll(0); setDescLoading(false) }
       if (key.upArrow) setDescScroll((prev) => Math.max(0, prev - 1))
       if (key.downArrow) setDescScroll((prev) => prev + 1)
       return
     }
-    if (key.return && state.jobs[selectedJob]) { setExpandedJob(true); setDescScroll(0) }
+    if (key.return && state.jobs[selectedJob]) {
+      const job = state.jobs[selectedJob]
+      setExpandedJob(true)
+      setDescScroll(0)
+      if (!job.description) {
+        setDescLoading(true)
+        service.fetchJobDescription(job.id)
+      }
+    }
     if (key.upArrow) setSelectedJob((prev) => Math.max(0, prev - 1))
     if (key.downArrow)
       setSelectedJob((prev) => Math.min(Math.max(0, state.jobs.length - 1), prev + 1))
@@ -292,7 +313,7 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
     return (
       <Box flexDirection="column">
         <Header state={state} />
-        <JobExpanded job={state.jobs[selectedJob]} scroll={descScroll} rows={rows} />
+        <JobExpanded job={state.jobs[selectedJob]} scroll={descScroll} rows={rows} loading={descLoading} />
       </Box>
     )
   }
