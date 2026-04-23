@@ -281,7 +281,7 @@ const App: React.FC<{ service: JobSearchService }> = ({ service }) => {
 export class TUI {
   constructor(private service: JobSearchService) {}
 
-  start(): void {
-    render(<App service={this.service} />)
+  async start(): Promise<void> {
+    await render(<App service={this.service} />).waitUntilExit()
   }
 }

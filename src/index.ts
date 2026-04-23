@@ -50,8 +50,10 @@ async function main(): Promise<void> {
   process.on('SIGINT', shutdown)
   process.on('SIGTERM', shutdown)
 
-  tui.start()
   service.start()
+  await tui.start()
+  watcher.stop()
+  process.exit(0)
 }
 
 main().catch((err) => {
