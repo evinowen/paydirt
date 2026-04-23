@@ -140,12 +140,18 @@ export class LinkedInScraper extends BaseScraper {
       log(`LinkedIn: fetching description from ${url}`)
       await page.goto(url, { waitUntil: 'load' })
 
-      const sel = '[data-testid="expandable-text-box"], #job-details, .jobs-description-content__text'
-      await page.waitForSelector(sel, { timeout: 10000 }).catch(() => {})
+      await page.waitForSelector('[data-testid="expandable-text-box"]', { timeout: 10000 }).catch(() => {})
 
-      return await page
-        .$eval(sel, (el) => (el as HTMLElement).innerText?.trim() ?? el.textContent?.trim() ?? '')
-        .catch(() => '')
+      // Expand collapsed description if the button is present
+      await page.locator('[data-testid="expandable-text-button"]').click({ timeout: 3000 }).catch(() => {})
+
+      return await page.evaluate(() => {
+        const box = document.querySelector('[data-testid="expandable-text-box"]')
+        if (!box) return ''
+        const clone = box.cloneNode(true) as HTMLElement
+        clone.querySelectorAll('button').forEach((b) => b.remove())
+        return clone.innerText?.trim() ?? ''
+      }).catch(() => '')
     } finally {
       await this.close()
     }
