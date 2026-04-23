@@ -188,6 +188,11 @@ const JobExpanded: React.FC<{ job: JobPosting; rows: number; loading: boolean; o
         )}
       </Box>
       <Box>
+        <Text color="grey" wrap="truncate">
+          {`\x1b]8;;${job.url}\x1b\\↗\x1b]8;;\x1b\\ ${job.url}`}
+        </Text>
+      </Box>
+      <Box>
         <Text color="grey">
           {loading || !hasContent
             ? ' ESC back'
