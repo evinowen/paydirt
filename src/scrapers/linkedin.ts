@@ -145,48 +145,35 @@ export class LinkedInScraper extends BaseScraper {
       // Expand collapsed description if the button is present
       await page.locator('[data-testid="expandable-text-button"]').click({ timeout: 3000 }).catch(() => {})
 
-      return await page.evaluate(() => {
-        const RESET  = '\x1b[0m'
-        const BOLD   = '\x1b[1m'
-        const CYAN   = '\x1b[36m'
-        const YELLOW = '\x1b[33m'
-        const GREY   = '\x1b[90m'
-
-        const convert = (node: Node): string => {
-          if (node.nodeType === 3) return (node as Text).textContent ?? ''
-          if (node.nodeType !== 1) return ''
-          const el = node as Element
-          const tag = el.tagName.toLowerCase()
-          if (['script', 'style', 'button', 'svg', 'img'].includes(tag)) return ''
-          const inner = Array.from(el.childNodes).map(convert).join('')
-          switch (tag) {
-            case 'h1':
-              return `\n${BOLD}${CYAN}${inner.trim()}${RESET}\n`
-            case 'h2':
-              return `\n${BOLD}${YELLOW}${inner.trim()}${RESET}\n`
-            case 'h3': case 'h4': case 'h5': case 'h6':
-              return `\n${BOLD}${inner.trim()}${RESET}\n`
-            case 'strong': case 'b':
-              return `${BOLD}${inner}${RESET}`
-            case 'em': case 'i':
-              return `${GREY}${inner}${RESET}`
-            case 'br':
-              return '\n'
-            case 'p':
-              return inner.trim() ? `${inner.trim()}\n` : ''
-            case 'li':
-              return `  ${CYAN}•${RESET} ${inner.trim()}\n`
-            case 'ul': case 'ol':
-              return `\n${inner}`
-            default:
-              return inner
-          }
-        }
-
-        const box = document.querySelector('[data-testid="expandable-text-box"]')
-        if (!box) return ''
-        return convert(box).replace(/\n{3,}/g, '\n\n').trim()
-      }).catch((err) => { log(`LinkedIn: description parse error: ${err}`, 'error'); return '' })
+      const desc = await page.evaluate(`(() => {
+        var ESC    = String.fromCharCode(27);
+        var RESET  = ESC + '[0m';
+        var BOLD   = ESC + '[1m';
+        var CYAN   = ESC + '[36m';
+        var YELLOW = ESC + '[33m';
+        var GREY   = ESC + '[90m';
+        var convert = function(node) {
+          if (node.nodeType === 3) return node.textContent || '';
+          if (node.nodeType !== 1) return '';
+          var tag = node.tagName.toLowerCase();
+          if (['script','style','button','svg','img'].indexOf(tag) >= 0) return '';
+          var inner = Array.from(node.childNodes).map(convert).join('');
+          if (tag === 'h1') return '\\n' + BOLD + CYAN + inner.trim() + RESET + '\\n';
+          if (tag === 'h2') return '\\n' + BOLD + YELLOW + inner.trim() + RESET + '\\n';
+          if (tag === 'h3' || tag === 'h4' || tag === 'h5' || tag === 'h6') return '\\n' + BOLD + inner.trim() + RESET + '\\n';
+          if (tag === 'strong' || tag === 'b') return BOLD + inner + RESET;
+          if (tag === 'em' || tag === 'i') return GREY + inner + RESET;
+          if (tag === 'br') return '\\n';
+          if (tag === 'p') return inner.trim() ? inner.trim() + '\\n' : '';
+          if (tag === 'li') return '  ' + CYAN + '\\u2022' + RESET + ' ' + inner.trim() + '\\n';
+          if (tag === 'ul' || tag === 'ol') return '\\n' + inner;
+          return inner;
+        };
+        var box = document.querySelector('[data-testid="expandable-text-box"]');
+        if (!box) return '';
+        return convert(box).replace(/\\n{3,}/g, '\\n\\n').trim();
+      })()`).catch((err) => { log(`LinkedIn: description parse error: ${err}`, 'error'); return '' })
+      return typeof desc === 'string' ? desc : ''
     } finally {
       await this.close()
     }
