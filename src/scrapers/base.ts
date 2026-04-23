@@ -1,11 +1,11 @@
 import { Browser, BrowserContext, Page, chromium } from 'playwright'
-import { JobPosting, PromptCodeFn, SearchOptions } from './types'
+import { AutomationContext, JobPosting, SearchOptions } from './types'
 
 export abstract class BaseScraper {
   protected browser: Browser | null = null
   protected context: BrowserContext | null = null
 
-  abstract search(options: SearchOptions, promptCode?: PromptCodeFn): Promise<JobPosting[]>
+  abstract search(options: SearchOptions, ctx?: AutomationContext): Promise<JobPosting[]>
 
   protected async launch(headless = true): Promise<Page> {
     this.browser = await chromium.launch({

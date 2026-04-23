@@ -1,13 +1,14 @@
 import { v4 as uuidv4 } from 'uuid'
 import { BaseScraper } from './base'
-import { JobPosting, PromptCodeFn, SearchOptions } from './types'
+import { AutomationContext, JobPosting, SearchOptions } from './types'
 import { LinkedInConfig } from '../config/types'
 
 const SEL = {
   usernameInput: '#username',
   passwordInput: '#password',
   loginButton: 'button[type="submit"]',
-  verifyInput: 'input[autocomplete="one-time-code"], input#input__email_verification_pin, input[name="pin"]',
+  verifyInput:
+    'input[autocomplete="one-time-code"], input#input__email_verification_pin, input[name="pin"]',
   jobCards: '.job-card-container',
   jobTitle: '.job-card-list__title',
   jobCompany: '.job-card-container__company-name',
@@ -21,27 +22,43 @@ export class LinkedInScraper extends BaseScraper {
     super()
   }
 
-  async search(options: SearchOptions, promptCode?: PromptCodeFn): Promise<JobPosting[]> {
+  async search(options: SearchOptions, ctx: AutomationContext = {}): Promise<JobPosting[]> {
+    const { log = () => {}, promptCode } = ctx
     const page = await this.launch(true)
     const jobs: JobPosting[] = []
 
     try {
+      log('LinkedIn: navigating to login page...')
       await page.goto('https://www.linkedin.com/login', { waitUntil: 'networkidle' })
+
+      log('LinkedIn: entering credentials...')
       await page.fill(SEL.usernameInput, this.config.email)
       await page.fill(SEL.passwordInput, this.config.password)
       await page.click(SEL.loginButton)
-      await page.waitForLoadState('domcontentloaded')
+
+      log('LinkedIn: waiting for login response...')
+      await page.waitForURL(
+        /linkedin\.com\/(feed|jobs|mynetwork|checkpoint|challenge|pin|verification)/,
+        { timeout: 30000 },
+      )
 
       if (/checkpoint|challenge|pin|verification/.test(page.url())) {
-        if (!promptCode) throw new Error('LinkedIn requires email verification but no prompt handler is available')
+        log('LinkedIn: email verification required — check your inbox', 'warn')
+        if (!promptCode)
+          throw new Error(
+            'LinkedIn requires email verification but no prompt handler is available',
+          )
         const code = await promptCode('linkedin')
         await page.fill(SEL.verifyInput, code)
         await page.click(SEL.loginButton)
+        log('LinkedIn: submitting verification code, waiting for login...')
+        await page.waitForURL(/linkedin\.com\/(feed|jobs|mynetwork)/, { timeout: 30000 })
       }
 
-      await page.waitForURL(/linkedin\.com\/(feed|jobs)/, { timeout: 30000 })
+      log('LinkedIn: logged in successfully')
 
       for (const keyword of options.keywords) {
+        log(`LinkedIn: searching for "${keyword}" in ${options.location}...`)
         const url = new URL('https://www.linkedin.com/jobs/search/')
         url.searchParams.set('keywords', keyword)
         url.searchParams.set('location', options.location)
@@ -51,6 +68,8 @@ export class LinkedInScraper extends BaseScraper {
         await page.waitForTimeout(2000)
 
         const cards = await page.$$(SEL.jobCards)
+        log(`LinkedIn: found ${cards.length} card(s) for "${keyword}", extracting details...`)
+
         for (const card of cards.slice(0, 25)) {
           const title = await card
             .$eval(SEL.jobTitle, (el) => el.textContent?.trim() ?? '')

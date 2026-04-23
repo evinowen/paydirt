@@ -7,7 +7,8 @@
   "scripts": {
     "start": "tsx src/index.ts",
     "build": "tsc",
-    "dev": "tsx watch src/index.ts"
+    "dev": "tsx watch src/index.ts",
+    "test:scraper": "tsx scripts/test-scraper.ts"
   },
   "dependencies": {
     "chokidar": "^3.6.0",

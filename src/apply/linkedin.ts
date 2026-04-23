@@ -1,35 +1,53 @@
 import { Page } from 'playwright'
 import { BaseApplicator, ApplicationResult } from './base'
-import { JobPosting, PromptCodeFn } from '../scrapers/types'
+import { AutomationContext, JobPosting } from '../scrapers/types'
 import { ResumeData } from '../resume/parser'
 import { LinkedInConfig } from '../config/types'
 
-const VERIFY_SEL = 'input[autocomplete="one-time-code"], input#input__email_verification_pin, input[name="pin"]'
+const SEL = {
+  loginButton: 'button[type="submit"]',
+  verifyInput:
+    'input[autocomplete="one-time-code"], input#input__email_verification_pin, input[name="pin"]',
+}
 
 export class LinkedInApplicator extends BaseApplicator {
   constructor(private config: LinkedInConfig) {
     super()
   }
 
-  async apply(job: JobPosting, resume: ResumeData, promptCode?: PromptCodeFn): Promise<ApplicationResult> {
+  async apply(job: JobPosting, resume: ResumeData, ctx: AutomationContext = {}): Promise<ApplicationResult> {
+    const { log = () => {}, promptCode } = ctx
     const page = await this.launch(false)
 
     try {
+      log(`LinkedIn: navigating to login page...`)
       await page.goto('https://www.linkedin.com/login', { waitUntil: 'networkidle' })
+
+      log(`LinkedIn: entering credentials...`)
       await page.fill('#username', this.config.email)
       await page.fill('#password', this.config.password)
-      await page.click('button[type="submit"]')
-      await page.waitForLoadState('domcontentloaded')
+      await page.click(SEL.loginButton)
+
+      log(`LinkedIn: waiting for login response...`)
+      await page.waitForURL(
+        /linkedin\.com\/(feed|jobs|mynetwork|checkpoint|challenge|pin|verification)/,
+        { timeout: 30000 },
+      )
 
       if (/checkpoint|challenge|pin|verification/.test(page.url())) {
-        if (!promptCode) throw new Error('LinkedIn requires email verification but no prompt handler is available')
+        log('LinkedIn: email verification required — check your inbox', 'warn')
+        if (!promptCode)
+          throw new Error(
+            'LinkedIn requires email verification but no prompt handler is available',
+          )
         const code = await promptCode('linkedin')
-        await page.fill(VERIFY_SEL, code)
-        await page.click('button[type="submit"]')
+        await page.fill(SEL.verifyInput, code)
+        await page.click(SEL.loginButton)
+        log('LinkedIn: submitting verification code, waiting for login...')
+        await page.waitForURL(/linkedin\.com\/(feed|jobs|mynetwork)/, { timeout: 30000 })
       }
 
-      await page.waitForURL(/linkedin\.com\/(feed|jobs)/, { timeout: 30000 })
-
+      log(`LinkedIn: logged in, navigating to job listing...`)
       await page.goto(job.url, { waitUntil: 'networkidle' })
 
       const easyApplyBtn = page.locator('button:has-text("Easy Apply")').first()
@@ -40,10 +58,12 @@ export class LinkedInApplicator extends BaseApplicator {
         }
       }
 
+      log(`LinkedIn: clicking Easy Apply...`)
       await easyApplyBtn.click()
       await page.waitForTimeout(1500)
 
       for (let step = 0; step < 10; step++) {
+        log(`LinkedIn: filling application step ${step + 1}...`)
         await this.fillStep(page, resume)
 
         const submitBtn = page.locator('button:has-text("Submit application")').first()
@@ -53,6 +73,7 @@ export class LinkedInApplicator extends BaseApplicator {
         if (await submitBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
           await submitBtn.click()
           await page.waitForTimeout(2000)
+          log(`LinkedIn: application submitted`)
           return { success: true, message: 'Application submitted' }
         } else if (await reviewBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
           await reviewBtn.click()

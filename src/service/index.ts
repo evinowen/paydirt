@@ -97,11 +97,10 @@ export class JobSearchService extends EventEmitter {
 
     if (this.state.config.linkedin?.enabled) {
       try {
-        this.log('Searching LinkedIn...')
-        const jobs = await new LinkedInScraper(this.state.config.linkedin).search(
-          options,
-          (source) => this.promptVerificationCode(source),
-        )
+        const jobs = await new LinkedInScraper(this.state.config.linkedin).search(options, {
+          log: (msg, level) => this.log(msg, level),
+          promptCode: (source) => this.promptVerificationCode(source),
+        })
         found.push(...jobs)
         this.log(`LinkedIn: ${jobs.length} posting(s) found`)
       } catch (err) {
@@ -111,8 +110,9 @@ export class JobSearchService extends EventEmitter {
 
     if (this.state.config.indeed?.enabled) {
       try {
-        this.log('Searching Indeed...')
-        const jobs = await new IndeedScraper(this.state.config.indeed).search(options)
+        const jobs = await new IndeedScraper(this.state.config.indeed).search(options, {
+          log: (msg, level) => this.log(msg, level),
+        })
         found.push(...jobs)
         this.log(`Indeed: ${jobs.length} posting(s) found`)
       } catch (err) {
@@ -122,8 +122,9 @@ export class JobSearchService extends EventEmitter {
 
     if (this.state.config.glassdoor?.enabled) {
       try {
-        this.log('Searching Glassdoor...')
-        const jobs = await new GlassdoorScraper(this.state.config.glassdoor).search(options)
+        const jobs = await new GlassdoorScraper(this.state.config.glassdoor).search(options, {
+          log: (msg, level) => this.log(msg, level),
+        })
         found.push(...jobs)
         this.log(`Glassdoor: ${jobs.length} posting(s) found`)
       } catch (err) {
@@ -167,18 +168,24 @@ export class JobSearchService extends EventEmitter {
           result = await new LinkedInApplicator(this.state.config.linkedin).apply(
             job,
             this.resume,
-            (source) => this.promptVerificationCode(source),
+            {
+              log: (msg, level) => this.log(msg, level),
+              promptCode: (source) => this.promptVerificationCode(source),
+            },
           )
           break
         case 'indeed':
           if (!this.state.config.indeed) throw new Error('Indeed not configured')
-          result = await new IndeedApplicator(this.state.config.indeed).apply(job, this.resume)
+          result = await new IndeedApplicator(this.state.config.indeed).apply(job, this.resume, {
+            log: (msg, level) => this.log(msg, level),
+          })
           break
         case 'glassdoor':
           if (!this.state.config.glassdoor) throw new Error('Glassdoor not configured')
           result = await new GlassdoorApplicator(this.state.config.glassdoor).apply(
             job,
             this.resume,
+            { log: (msg, level) => this.log(msg, level) },
           )
           break
       }

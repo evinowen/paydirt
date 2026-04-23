@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
 import { BaseScraper } from './base'
-import { JobPosting, SearchOptions } from './types'
+import { AutomationContext, JobPosting, SearchOptions } from './types'
 import { PlatformConfig } from '../config/types'
 
 const SEL = {
@@ -20,22 +20,28 @@ export class GlassdoorScraper extends BaseScraper {
     super()
   }
 
-  async search(options: SearchOptions): Promise<JobPosting[]> {
+  async search(options: SearchOptions, ctx: AutomationContext = {}): Promise<JobPosting[]> {
+    const { log = () => {} } = ctx
     const page = await this.launch(true)
     const jobs: JobPosting[] = []
 
     try {
+      log('Glassdoor: navigating to login page...')
       await page.goto('https://www.glassdoor.com/profile/login_input.htm', {
         waitUntil: 'networkidle',
       })
+      log('Glassdoor: entering credentials...')
       await page.fill(SEL.emailInput, this.config.email)
       await page.click(SEL.continueButton)
       await page.waitForTimeout(1000)
       await page.fill(SEL.passwordInput, this.config.password)
       await page.click(SEL.signInButton)
+      log('Glassdoor: waiting for login response...')
       await page.waitForURL(/glassdoor\.com\/(Jobs|member)/, { timeout: 20000 })
+      log('Glassdoor: logged in successfully')
 
       for (const keyword of options.keywords) {
+        log(`Glassdoor: searching for "${keyword}" in ${options.location}...`)
         const url = new URL('https://www.glassdoor.com/Job/jobs.htm')
         url.searchParams.set('sc.keyword', keyword)
         url.searchParams.set('locKeyword', options.location)
@@ -45,6 +51,7 @@ export class GlassdoorScraper extends BaseScraper {
         await page.waitForTimeout(2000)
 
         const cards = await page.$$(SEL.jobCards)
+        log(`Glassdoor: found ${cards.length} card(s) for "${keyword}", extracting details...`)
         for (const card of cards.slice(0, 25)) {
           const title = await card
             .$eval(SEL.jobTitle, (el) => el.textContent?.trim() ?? '')

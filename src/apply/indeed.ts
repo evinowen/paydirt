@@ -1,6 +1,6 @@
 import { Page } from 'playwright'
 import { BaseApplicator, ApplicationResult } from './base'
-import { JobPosting } from '../scrapers/types'
+import { AutomationContext, JobPosting } from '../scrapers/types'
 import { ResumeData } from '../resume/parser'
 import { PlatformConfig } from '../config/types'
 
@@ -9,7 +9,7 @@ export class IndeedApplicator extends BaseApplicator {
     super()
   }
 
-  async apply(job: JobPosting, resume: ResumeData): Promise<ApplicationResult> {
+  async apply(job: JobPosting, resume: ResumeData, _ctx: AutomationContext = {}): Promise<ApplicationResult> {
     const page = await this.launch(false)
 
     try {

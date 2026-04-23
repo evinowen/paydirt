@@ -1,4 +1,10 @@
 export type PromptCodeFn = (source: string) => Promise<string>
+export type LogFn = (message: string, level?: 'info' | 'warn' | 'error') => void
+
+export interface AutomationContext {
+  log?: LogFn
+  promptCode?: PromptCodeFn
+}
 
 export type JobSource = 'linkedin' | 'indeed' | 'glassdoor'
 export type JobStatus = 'new' | 'applied' | 'skipped' | 'failed'

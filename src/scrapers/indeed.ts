@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
 import { BaseScraper } from './base'
-import { JobPosting, SearchOptions } from './types'
+import { AutomationContext, JobPosting, SearchOptions } from './types'
 import { PlatformConfig } from '../config/types'
 
 const SEL = {
@@ -17,12 +17,14 @@ export class IndeedScraper extends BaseScraper {
     super()
   }
 
-  async search(options: SearchOptions): Promise<JobPosting[]> {
+  async search(options: SearchOptions, ctx: AutomationContext = {}): Promise<JobPosting[]> {
+    const { log = () => {} } = ctx
     const page = await this.launch(true)
     const jobs: JobPosting[] = []
 
     try {
       for (const keyword of options.keywords) {
+        log(`Indeed: searching for "${keyword}" in ${options.location}...`)
         const url = new URL('https://www.indeed.com/jobs')
         url.searchParams.set('q', keyword)
         url.searchParams.set('l', options.location)
@@ -33,6 +35,7 @@ export class IndeedScraper extends BaseScraper {
         await page.waitForTimeout(2000)
 
         const cards = await page.$$(SEL.jobCards)
+        log(`Indeed: found ${cards.length} card(s) for "${keyword}", extracting details...`)
         for (const card of cards.slice(0, 25)) {
           const title = await card
             .$eval(SEL.jobTitle, (el) => el.textContent?.trim() ?? '')
