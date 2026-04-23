@@ -10,10 +10,14 @@ const SEL = {
   verifyInput:
     'input[autocomplete="one-time-code"], input#input__email_verification_pin, input[name="pin"]',
   jobCards: '.job-card-container',
-  jobTitle: '.job-card-list__title',
-  jobCompany: '.job-card-container__company-name',
-  jobLocation: '.job-card-container__metadata-item',
-  jobLink: 'a.job-card-list__title',
+  jobTitle:
+    '.job-card-list__title--link, .job-card-list__title, a.job-card-container__link strong',
+  jobCompany:
+    '.job-card-container__company-name, .artdeco-entity-lockup__subtitle span, .job-card-container__primary-description',
+  jobLocation:
+    '.job-card-container__metadata-item, .artdeco-entity-lockup__caption li, .job-card-container__metadata-wrapper li',
+  jobLink:
+    'a.job-card-list__title--link, a.job-card-list__title, a.job-card-container__link, a[href*="/jobs/view/"]',
   easyApplyBadge: '.job-card-container__apply-method',
 }
 
@@ -101,6 +105,11 @@ export class LinkedInScraper extends BaseScraper {
               foundAt: new Date(),
               status: 'new',
             })
+          } else {
+            const missing = [!title && 'title', !company && 'company', !href && 'url']
+              .filter(Boolean)
+              .join(', ')
+            log(`LinkedIn: skipped card — could not extract: ${missing}`, 'warn')
           }
         }
       }
