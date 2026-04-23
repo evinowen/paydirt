@@ -1,7 +1,11 @@
+import fs from 'fs'
+import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { BaseScraper } from './base'
 import { AutomationContext, JobPosting, SearchOptions } from './types'
 import { PlatformConfig } from '../config/types'
+
+const SESSION_PATH = path.resolve('sessions', 'glassdoor.json')
 
 const SEL = {
   emailInput: '#inlineUserEmail',
@@ -22,24 +26,36 @@ export class GlassdoorScraper extends BaseScraper {
 
   async search(options: SearchOptions, ctx: AutomationContext = {}): Promise<JobPosting[]> {
     const { log = () => {} } = ctx
-    const page = await this.launch(true)
+    const page = await this.launch(true, SESSION_PATH)
     const jobs: JobPosting[] = []
 
     try {
-      log('Glassdoor: navigating to login page...')
-      await page.goto('https://www.glassdoor.com/profile/login_input.htm', {
+      log('Glassdoor: checking session...')
+      await page.goto('https://www.glassdoor.com/member/home/index.htm', {
         waitUntil: 'domcontentloaded',
       })
-      await page.waitForSelector(SEL.emailInput, { timeout: 15000 })
-      log('Glassdoor: entering credentials...')
-      await page.fill(SEL.emailInput, this.config.email)
-      await page.click(SEL.continueButton)
-      await page.waitForTimeout(1000)
-      await page.fill(SEL.passwordInput, this.config.password)
-      await page.click(SEL.signInButton)
-      log('Glassdoor: waiting for login response...')
-      await page.waitForURL(/glassdoor\.com\/(Jobs|member)/, { timeout: 20000 })
-      log('Glassdoor: logged in successfully')
+
+      if (!/glassdoor\.com\/member/.test(page.url())) {
+        log('Glassdoor: session expired or not found, logging in...')
+        await page.goto('https://www.glassdoor.com/profile/login_input.htm', {
+          waitUntil: 'domcontentloaded',
+        })
+        await page.waitForSelector(SEL.emailInput, { timeout: 15000 })
+        log('Glassdoor: entering credentials...')
+        await page.fill(SEL.emailInput, this.config.email)
+        await page.click(SEL.continueButton)
+        await page.waitForTimeout(1000)
+        await page.fill(SEL.passwordInput, this.config.password)
+        await page.click(SEL.signInButton)
+        log('Glassdoor: waiting for login response...')
+        await page.waitForURL(/glassdoor\.com\/(Jobs|member)/, { timeout: 20000 })
+
+        log('Glassdoor: saving session...')
+        fs.mkdirSync(path.dirname(SESSION_PATH), { recursive: true })
+        await this.context!.storageState({ path: SESSION_PATH })
+      }
+
+      log('Glassdoor: logged in')
 
       for (const keyword of options.keywords) {
         log(`Glassdoor: searching for "${keyword}" in ${options.location}...`)
